@@ -1,0 +1,314 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+content.js
+manifest.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="content.js">
+// ==========================================================================
+// TheChannel Viewer for Gmail - content.js
+// Version 23.0 - Replaced CSS class hover with manual style for stability
+// ==========================================================================
+
+let iframeContainer, gmailViewContainer, theChannelButton, hamburgerButton, searchBarForm;
+let lastGmailHash = '#inbox';
+let wasSidebarClosedByExtension = false;
+
+// --- פונקציות ניהול תצוגה ---
+
+function updateActiveButtonVisuals() {
+    const currentHash = window.location.hash;
+    
+    document.querySelectorAll('.Xa').forEach(btn => btn.classList.remove('acZ'));
+    if (theChannelButton && theChannelButton.dataset.isFallback === 'true') {
+        theChannelButton.style.backgroundColor = 'transparent';
+        theChannelButton.querySelector('.the-channel-fallback-text').style.fontWeight = 'normal';
+    }
+
+    if (currentHash.startsWith('#the-channel')) {
+        if (theChannelButton) {
+            if (theChannelButton.dataset.isFallback) {
+                theChannelButton.style.backgroundColor = '#c2e7ff';
+                theChannelButton.querySelector('.the-channel-fallback-text').style.fontWeight = 'bold';
+            } else {
+                theChannelButton.classList.add('acZ');
+                const originalActiveButton = document.querySelector('div[role="navigation"].a6o .Xa.apV:not(#the-channel-button)');
+                if (originalActiveButton) {
+                    originalActiveButton.classList.remove('apV');
+                }
+                theChannelButton.classList.add('apV');
+            }
+        }
+    } else {
+        if (theChannelButton && !theChannelButton.dataset.isFallback) {
+            theChannelButton.classList.remove('apV');
+        }
+        
+        const mailButton = document.querySelector('div[aria-label^="אימייל"], div[aria-label^="Mail"]');
+        if (mailButton) mailButton.closest('.Xa')?.classList.add('acZ');
+    }
+}
+
+function showTheChannel() {
+    wasSidebarClosedByExtension = false; 
+    
+    if (theChannelButton && !theChannelButton.dataset.isFallback) {
+        if (hamburgerButton && hamburgerButton.getAttribute('aria-expanded') === 'true') {
+            hamburgerButton.click();
+            wasSidebarClosedByExtension = true;
+        }
+    }
+
+    if (theChannelButton && theChannelButton.dataset.isFallback) {
+        const activeLabel = document.querySelector('.TK .TO.nZ.aiq');
+        if (activeLabel) activeLabel.classList.remove('nZ', 'aiq');
+    }
+
+    if (gmailViewContainer) gmailViewContainer.style.display = 'none';
+    if (searchBarForm) searchBarForm.style.display = 'none';
+    if (iframeContainer) iframeContainer.style.display = 'block';
+    updateActiveButtonVisuals();
+}
+
+function showGmail() {
+    // שלב 1: החזר את כל רכיבי ה-UI של ג'ימייל למצבם המקורי *קודם כל*.
+    // זהו השינוי הקריטי ביותר. הוא מחזיר את ג'ימייל למצב שהוא מבין.
+    if (iframeContainer) iframeContainer.style.display = 'none';
+    if (gmailViewContainer) gmailViewContainer.style.display = '';
+    if (searchBarForm) searchBarForm.style.display = '';
+
+    // שלב 2: הפעל אירוע resize כדי לעזור לג'ימייל להתאים את עצמו למצב החדש.
+    window.dispatchEvent(new Event('resize'));
+
+    // שלב 3: רק לאחר שה-UI שוחזר, בדוק אם התוסף צריך להפעיל מחדש את הסרגל.
+    if (wasSidebarClosedByExtension) {
+        if (hamburgerButton) {
+            // שימוש ב-setTimeout עם 0 השהיה.
+            // זה דוחף את הלחיצה לסוף תור האירועים, ומבטיח שהיא תתרחש
+            // *אחרי* שהדפדפן סיים לעבד את שינויי ה-display.
+            setTimeout(() => {
+                hamburgerButton.click();
+            }, 0);
+        }
+        
+        // אפס את הדגל מיד לאחר שהחלטנו לבצע את הפעולה.
+        wasSidebarClosedByExtension = false;
+    }
+
+    // שלב 4: עדכן את הנראות של הכפתור של התוסף.
+    updateActiveButtonVisuals();
+}
+
+// --- פונקציות ניווט ואירועים ---
+
+function navigateToChannel() {
+    lastGmailHash = window.location.hash || '#inbox';
+    window.location.hash = 'the-channel';
+}
+
+
+function handleHashChange() {
+    if (window.location.hash.startsWith('#the-channel')) {
+        showTheChannel();
+    } else {
+        showGmail();
+    }
+}
+
+// --- פונקציה לניהול מיקום כפתור חלופי ---
+function updateFallbackButtonPosition(labelsContainer, buttonWrapper) {
+    if (!labelsContainer || !buttonWrapper) return;
+    
+    if (labelsContainer.scrollHeight > labelsContainer.clientHeight) {
+        Object.assign(buttonWrapper.style, { position: 'relative', bottom: 'auto', left: 'auto', right: 'auto', marginTop: '16px', paddingBottom: '10px' });
+        labelsContainer.style.paddingBottom = '0px';
+    } else {
+        Object.assign(buttonWrapper.style, { position: 'absolute', bottom: '5px', left: '0', right: '0', marginTop: '0', paddingBottom: '0' });
+        labelsContainer.style.paddingBottom = '70px';
+    }
+}
+
+// --- פונקציית אתחול ראשית ---
+
+function initializeExtension() {
+    if (document.getElementById('the-channel-button')) return true;
+
+    gmailViewContainer = document.querySelector('.aeF');
+    const iframeParent = document.querySelector('.Tm');
+    hamburgerButton = document.querySelector('div[aria-label="התפריט הראשי"]');
+    searchBarForm = document.querySelector('form[role="search"]');
+    if (!gmailViewContainer || !iframeParent || !hamburgerButton || !searchBarForm) return false;
+
+    let buttonCreated = false;
+    let eventListenerTarget;
+
+    const navContainer = document.querySelector('div[role="navigation"].a6o');
+    if (navContainer) {
+        const buttonToClone = navContainer.querySelector('div[aria-label^="Chat"]');
+        if (buttonToClone) {
+            const buttonContainerToClone = buttonToClone.closest('.Xa');
+            if (buttonContainerToClone) {
+                theChannelButton = buttonContainerToClone.cloneNode(true);
+                theChannelButton.id = 'the-channel-button';
+                
+                theChannelButton.classList.remove('acZ', 'apV');
+                theChannelButton.removeAttribute('jscontroller');
+                
+                const buttonInnerDiv = theChannelButton.querySelector('[aria-label]');
+                const buttonTextDiv = theChannelButton.querySelector('.apW');
+                if (buttonInnerDiv) buttonInnerDiv.setAttribute('aria-label', 'TheChannel');
+                if (buttonTextDiv) buttonTextDiv.textContent = 'הערוץ';
+                
+                const iconContainer = theChannelButton.querySelector('.V6');
+                if(iconContainer){
+                    iconContainer.addEventListener('mouseover', () => {
+                        if (!theChannelButton.classList.contains('acZ')) {
+                            iconContainer.style.backgroundColor = '#f1f3f4';
+                        }
+                    });
+                    iconContainer.addEventListener('mouseout', () => {
+                        iconContainer.style.backgroundColor = 'transparent';
+                    });
+                }
+
+                const spacer = navContainer.querySelector('.al9');
+                navContainer.insertBefore(theChannelButton, spacer || null);
+                eventListenerTarget = navContainer;
+                buttonCreated = true;
+            }
+        }
+    }
+
+    if (!buttonCreated) {
+        // ... (הקוד של הכפתור החלופי נשאר ללא שינוי)
+        const labelsContainer = document.querySelector('.aam');
+        if (labelsContainer) {
+            labelsContainer.style.position = 'relative';
+            const buttonWrapper = document.createElement('div');
+            buttonWrapper.style.cssText = `display: flex; justify-content: center; padding: 0 4px;`;
+            const buttonHTML = `<div id="the-channel-button" data-is-fallback="true" title="TheChannel"><div class="the-channel-fallback-icon"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"></path></svg></div><div class="the-channel-fallback-text">TheChannel</div></div>`;
+            buttonWrapper.innerHTML = buttonHTML;
+            labelsContainer.appendChild(buttonWrapper);
+            theChannelButton = document.getElementById('the-channel-button');
+            const iconDiv = theChannelButton.querySelector('.the-channel-fallback-icon'), textDiv = theChannelButton.querySelector('.the-channel-fallback-text'), svgIcon = theChannelButton.querySelector('svg');
+            Object.assign(theChannelButton.style, { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '16px', cursor: 'pointer', fontFamily: "'Google Sans', Roboto, Arial, sans-serif", transition: 'background-color 0.2s' });
+            Object.assign(iconDiv.style, { paddingBottom: '4px' });
+            Object.assign(svgIcon.style, { width: '24px', height: '24px', fill: '#444746' });
+            Object.assign(textDiv.style, { fontSize: '12px', color: '#444746' });
+            theChannelButton.onmouseover = () => { if (!window.location.hash.startsWith('#the-channel')) theChannelButton.style.backgroundColor = '#f1f3f4'; };
+            theChannelButton.onmouseout = () => { if (!window.location.hash.startsWith('#the-channel')) theChannelButton.style.backgroundColor = 'transparent'; };
+            const observer = new ResizeObserver(() => updateFallbackButtonPosition(labelsContainer, buttonWrapper));
+            observer.observe(labelsContainer);
+            updateFallbackButtonPosition(labelsContainer, buttonWrapper);
+            eventListenerTarget = labelsContainer;
+            buttonCreated = true;
+        }
+    }
+
+    if (!buttonCreated) return false;
+
+    iframeContainer = document.createElement('div');
+    iframeContainer.id = 'the-channel-iframe-container';
+    iframeContainer.style.cssText = 'display:none; position:absolute; top:0; left:0; width:100%; height:100%;';
+    const iframe = document.createElement('iframe');
+    iframe.src = 'https://thechannel-viewer.clickandgo.cfd';
+    iframe.style.cssText = 'width:100%; height:100%; border:none;';
+    iframe.allow = 'clipboard-read; clipboard-write';
+    iframeContainer.appendChild(iframe);
+    iframeParent.appendChild(iframeContainer);
+
+    theChannelButton.addEventListener('click', navigateToChannel);
+    window.addEventListener('hashchange', handleHashChange);
+    handleHashChange();
+
+    console.log('TheChannel button for Gmail (v23.0) was successfully initialized!');
+    return true;
+}
+
+const initInterval = setInterval(() => {
+    if (initializeExtension()) {
+        clearInterval(initInterval);
+    }
+}, 500);
+</file>
+
+<file path="manifest.json">
+{
+  "manifest_version": 3,
+  "name": "TheChannel Viewer for Gmail",
+  "version": "1.0",
+  "description": "מוסיף כפתור לפתיחת TheChannel בתוך ג'ימייל",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://mail.google.com/"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+    "icons": {
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["images/icon16.png"],
+      "matches": ["https://mail.google.com/*"]
+    }
+  ]
+}
+</file>
+
+</files>
