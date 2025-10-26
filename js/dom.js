@@ -9,7 +9,9 @@
     els.hamburgerButton = document.querySelector('.gb_1c');
     els.searchBar = document.querySelector('form[role="search"]');
     els.navContainer = document.querySelector('div[role="navigation"].a6o');
-    
+    //els.gmailSidebar = document.querySelector('.aic .T-I-KE')?.closest('.aqn');
+    //els.chatSidebar = document.querySelector('div[gh="chat"]')?.closest('.aqn');
+
     return Object.values(els).every(el => el !== null);
   };
 
@@ -63,23 +65,43 @@
   // מעדכן את הנראות של כפתורי הניווט (כשנכנסים ל-TheChannel)
   app.dom.updateActiveButtonVisuals = function() {
     const isTheChannelActive = window.location.hash.startsWith('#the-channel');
-    document.querySelectorAll('div[role="navigation"].a6o .Xa').forEach(btn => btn.classList.remove('acZ', 'apV'));
-
     if (isTheChannelActive) {
+      document.querySelectorAll('div[role="navigation"].a6o .Xa').forEach(btn => btn.classList.remove('acZ', 'apV'));
       app.state.elements.theChannelButton?.classList.add('acZ', 'apV');
     } else {
-      const mailButton = document.querySelector('div[aria-label^="אימייל"], div[aria-label^="Mail"]');
-      mailButton?.closest('.Xa')?.classList.add('acZ', 'apV');
+      app.state.elements.theChannelButton?.classList.remove('acZ', 'apV');
+      if (window.location.hash.startsWith(app.state.lastGmailHash)) {
+        if (window.location.hash.startsWith('#chat')) {
+          const chatButton = document.querySelector('div[aria-label^="צ\'אט"], div[aria-label^="Chat"]');
+          chatButton?.closest('.Xa')?.classList.add('acZ', 'apV');
+        } else if (window.location.hash.startsWith('#meet')) {
+          const chatButton = document.querySelector('div[aria-label^="Meet"]');
+          chatButton?.closest('.Xa')?.classList.add('acZ', 'apV');
+        } else {
+          const mailButton = document.querySelector('div[aria-label^="אימייל"], div[aria-label^="Mail"]');
+          mailButton?.closest('.Xa')?.classList.add('acZ', 'apV');
+        }
+      }
     }
   };
   
   // מעדכן את נראות כפתור "אימייל חדש"
   app.dom.updateComposeButtonVisibility = function() {
-      const composeButtonContainer = document.querySelector('.aqn');
-      if (!composeButtonContainer) return;
-      const isChatOrMeet = window.location.hash.startsWith('#chat') || window.location.hash.startsWith('#calls');
-      if (isChatOrMeet) {
-          composeButtonContainer.classList.remove('apV');
+      const gmailSidebar = document.querySelector('.aic .T-I-KE')?.closest('.aqn');
+      const chatSidebar = document.querySelector('div[gh="chat"]')?.closest('.aqn');
+      if (window.location.hash.startsWith('#calls')) {
+        if (gmailSidebar && chatSidebar) {
+          gmailSidebar.classList.remove('apV');
+          chatSidebar.classList.remove('apV')
+        }
+      } else if (window.location.hash.startsWith('#chat')) {
+        if (gmailSidebar){
+          gmailSidebar.classList.remove('apV');
+        }
+      } else {
+        if(chatSidebar){
+          chatSidebar.classList.remove('apV')
+        }
       }
   };
 
@@ -87,7 +109,9 @@
   app.dom.showTheChannel = function() {
     const els = app.state.elements;
     if (els.hamburgerButton?.getAttribute('aria-expanded') === 'true') {
+      app.state.HamburgerClick = false;
       els.hamburgerButton.click();
+      app.state.HamburgerClick = true;
       app.state.wasSidebarClosedByExtension = true;
     }
 
@@ -111,10 +135,7 @@
       setTimeout(() => els.hamburgerButton?.click(), 0);
       app.state.wasSidebarClosedByExtension = false;
     }
-    
-    // --- תיקון: החזרת הלוגיקה המקורית ---
-    // במקום לקרוא לפונקציה המלאה, רק מסירים את הקלאס מהכפתור שלנו.
-    app.state.elements.theChannelButton?.classList.remove('acZ', 'apV');
+    this.updateActiveButtonVisuals();
   };
 
 })(TheChannelViewer);

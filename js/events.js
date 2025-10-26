@@ -13,8 +13,15 @@
       app.dom.showTheChannel();
     } else {
       app.dom.showGmail();
-      // --- תיקון: קריאה לפונקציה שהוחזרה כדי לעדכן את כפתור "אימייל חדש" ---
       app.dom.updateComposeButtonVisibility();
+    }
+  };
+
+    app.events.handleHamburgerClick = function(event) {
+    if (window.location.hash.startsWith('#the-channel') && app.state.HamburgerClick) {
+      event.preventDefault();
+      event.stopPropagation();
+      app.state.elements.hamburgerButton.blur();
     }
   };
 
@@ -22,6 +29,7 @@
   app.events.attachListeners = function() {
     app.state.elements.theChannelButton.addEventListener('click', this.navigateToChannel);
     window.addEventListener('hashchange', this.handleHashChange);
+    app.state.elements.hamburgerButton.addEventListener('click', this.handleHamburgerClick, true);
   };
 
 })(TheChannelViewer);
