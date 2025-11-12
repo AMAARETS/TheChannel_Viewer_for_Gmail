@@ -13,5 +13,6 @@
   "chatSidebarContainer": "div[gh='chat']",
   "closestSidebar": ".aqn",
   "activeNavButton": "acZ",
-  "activeNavButton2": "apV"
+  "activeNavButton2": "apV",
+  "gmailToolbar": "div[gh='tm']"
 }

@@ -7,6 +7,17 @@
     window.location.hash = 'the-channel';
   };
 
+  // פונקציה חדשה שמנווטת חזרה למיקום האחרון ב-Gmail
+  app.events.navigateToLastView = function(event) {
+    // אנחנו מתערבים רק אם אנחנו כרגע בתצוגת הערוץ
+    if (window.location.hash.startsWith('#the-channel')) {
+      event.preventDefault();
+      event.stopPropagation();
+      window.location.hash = app.state.lastGmailHash;
+    }
+    // אם אנחנו לא בתצוגת הערוץ, אנחנו לא עושים כלום ונותנים ל-Gmail לעשות את שלו.
+  };
+
   // המטפל הראשי בשינוי ה-hash, קובע איזו תצוגה להראות
   app.events.handleHashChange = function() {
     if (window.location.hash.startsWith('#the-channel')) {
@@ -17,7 +28,7 @@
     }
   };
 
-    app.events.handleHamburgerClick = function(event) {
+  app.events.handleHamburgerClick = function(event) {
     if (window.location.hash.startsWith('#the-channel') && app.state.HamburgerClick) {
       event.preventDefault();
       event.stopPropagation();
@@ -27,9 +38,22 @@
 
   // מחבר את כל המאזינים לאירועים הרלוונטיים
   app.events.attachListeners = function() {
-    app.state.elements.theChannelButton.addEventListener('click', this.navigateToChannel);
+    const els = app.state.elements;
+    
+    els.theChannelButton.addEventListener('click', this.navigateToChannel);
     window.addEventListener('hashchange', this.handleHashChange);
-    app.state.elements.hamburgerButton.addEventListener('click', this.handleHamburgerClick, true);
+    els.hamburgerButton.addEventListener('click', this.handleHamburgerClick, true);
+    
+    // חיבור המאזינים החדשים לכפתורי הניווט של Gmail
+    if (els.mailButton) {
+      els.mailButton.addEventListener('click', this.navigateToLastView);
+    }
+    if (els.chatButton) {
+      els.chatButton.addEventListener('click', this.navigateToLastView);
+    }
+    if (els.meetButton) {
+      els.meetButton.addEventListener('click', this.navigateToLastView);
+    }
   };
 
 })(TheChannelViewer);

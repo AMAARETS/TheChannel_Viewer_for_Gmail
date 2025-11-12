@@ -13,6 +13,18 @@
     els.hamburgerButton = document.querySelector(selectors.hamburgerButton);
     els.searchBar = document.querySelector(selectors.searchBar);
     els.navContainer = document.querySelector(selectors.navContainer);
+    
+    // איתור כפתורי הניווט הראשיים של Gmail
+    if (els.navContainer) {
+      const mailButtonLabel = els.navContainer.querySelector('div[aria-label^="אימייל"], div[aria-label^="Mail"]');
+      els.mailButton = mailButtonLabel ? mailButtonLabel.closest(selectors.buttonContainer) : null;
+      
+      const chatButtonLabel = els.navContainer.querySelector('div[aria-label^="צ\'אט"], div[aria-label^="Chat"]');
+      els.chatButton = chatButtonLabel ? chatButtonLabel.closest(selectors.buttonContainer) : null;
+      
+      const meetButtonLabel = els.navContainer.querySelector('div[aria-label^="Meet"]');
+      els.meetButton = meetButtonLabel ? meetButtonLabel.closest(selectors.buttonContainer) : null;
+    }
 
     return Object.values(els).every(el => el !== null);
   };
@@ -20,12 +32,11 @@
   // יוצר את כפתור הניווט של TheChannel
   app.dom.createNavButton = function() {
     const selectors = app.state.selectors;
-    const chatButton = app.state.elements.navContainer.querySelector(selectors.chatButton);
-    if (!chatButton) return null;
-    const buttonContainer = chatButton.closest(selectors.buttonContainer);
-    if (!buttonContainer) return null;
+    // נשתמש בכפתור הצ'אט שכבר איתרנו ב-queryElements
+    const chatButtonContainer = app.state.elements.chatButton;
+    if (!chatButtonContainer) return null;
 
-    const newButton = buttonContainer.cloneNode(true);
+    const newButton = chatButtonContainer.cloneNode(true);
     newButton.id = 'the-channel-button';
     newButton.classList.remove(selectors.activeNavButton, selectors.activeNavButton2);
     newButton.removeAttribute('jscontroller');
@@ -77,17 +88,14 @@
       app.state.elements.theChannelButton?.classList.add(...activeClasses);
     } else {
       app.state.elements.theChannelButton?.classList.remove(...activeClasses);
-      if (window.location.hash.startsWith(app.state.lastGmailHash)) {
-        if (window.location.hash.startsWith('#chat')) {
-          const chatButton = document.querySelector('div[aria-label^="צ\'אט"], div[aria-label^="Chat"]');
-          chatButton?.closest(selectors.buttonContainer)?.classList.add(...activeClasses);
-        } else if (window.location.hash.startsWith('#meet')) {
-          const chatButton = document.querySelector('div[aria-label^="Meet"]');
-          chatButton?.closest(selectors.buttonContainer)?.classList.add(...activeClasses);
-        } else {
-          const mailButton = document.querySelector('div[aria-label^="אימייל"], div[aria-label^="Mail"]');
-          mailButton?.closest(selectors.buttonContainer)?.classList.add(...activeClasses);
-        }
+      // הלוגיקה פה נשארת זהה כי היא מטפלת במצב *אחרי* שהניווט כבר התבצע
+      if (window.location.hash.startsWith('#chat')) {
+        app.state.elements.chatButton?.classList.add(...activeClasses);
+      } else if (window.location.hash.startsWith('#meet')) {
+        app.state.elements.meetButton?.classList.add(...activeClasses);
+      } else {
+        // ברירת המחדל היא כפתור המייל
+        app.state.elements.mailButton?.classList.add(...activeClasses);
       }
     }
   };
