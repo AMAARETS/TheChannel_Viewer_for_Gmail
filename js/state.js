@@ -5,7 +5,8 @@ const TheChannelViewer = {
     wasSidebarClosedByExtension: false,
     HamburgerClick: true,
     isInitialized: false,
-    elements: {} // כאן נשמור רפרנסים לכל אלמנטי ה-DOM שנשתמש בהם
+    elements: {}, // כאן נשמור רפרנסים לכל אלמנטי ה-DOM שנשתמש בהם
+    selectors: null // כאן נשמור את המזהים שייטענו מהשרת
   },
   dom: {},
   events: {}
