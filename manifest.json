@@ -1,26 +1,44 @@
 {
   "manifest_version": 3,
   "name": "TheChannel Viewer for Gmail",
-  "version": "1.0.1",
-  "description": "מאפשר צפיה באתרי הערוץ מתוך ג'ימייל",
-  "host_permissions": [
-    "https://mail.google.com/",
-    "https://cdn.jsdelivr.net/"
-  ],
-  "content_scripts": [
-    {
-      "matches": ["https://mail.google.com/*"],
-      "css": ["styles.css"],
-      "js": [
-        "js/state.js",
-        "js/dom.js",
-        "js/events.js",
-        "js/main.js"
-      ]
-    }
-  ],
+  "version": "3.1.0",
+  "description": "מאפשר צפיה באתרי הערוץ מתוך ג'ימייל ומתקן הגדרות עוגיות.",
   "icons": {
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "storage",
+    "scripting",
+    "cookies"
+  ],
+  "host_permissions": [
+    "https://mail.google.com/",
+    "https://thechannel-viewer.clickandgo.cfd/"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "service_worker/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "css": ["styles/gmail.css"],
+      "js": [
+        "content_scripts/state.js",
+        "content_scripts/dom.js",
+        "content_scripts/events.js",
+        "content_scripts/main.js"
+      ]
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "48": "icons/icon-48.png"
+    }
   }
 }

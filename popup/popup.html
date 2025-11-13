@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>הגדרות TheChannel Viewer</title>
+    <link rel="stylesheet" href="../styles/popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>הגדרות אתרי הערוץ</h1>
+            <p>ניהול הרשאות לתיקון עוגיות באתרים.</p>
+        </header>
+        
+        <div class="actions">
+            <button id="update-sites-btn">טען רשימת אתרים</button>
+        </div>
+
+        <div id="sites-list-container">
+            <h2>רשימת אתרים לניהול:</h2>
+            <ul id="sites-list">
+                <!-- רשימת האתרים תופיע כאן -->
+            </ul>
+        </div>
+        
+        <div class="actions">
+            <button id="apply-settings-btn" class="primary" disabled>בקש הרשאות והחל שינויים</button>
+        </div>
+        
+        <div id="status-message"></div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>
