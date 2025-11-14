@@ -1,129 +1,87 @@
 // קובץ זה הוא ה-Service Worker של התוסף. הוא רץ ברקע ומנהל את הלוגיקה המרכזית.
 
-const TARGET_SITE_URL = 'https://thechannel-viewer.clickandgo.cfd/';
-const SITES_STORAGE_KEY = 'theChannelSites';
+const SETTINGS_STORAGE_KEY = 'theChannelViewerSettings';
 
-// --- לוגיקת שליפת רשימת האתרים (שופרה לאמינות מירבית) ---
-
-/**
- * פונקציה זו תוזרק לדף. היא מבצעת משימה אחת פשוטה:
- * ממתינה עד שהמפתח יופיע ב-localStorage ומחזירה את ערכו כמחרוזת גולמית.
- * @returns {Promise<string|null>}
- */
-async function getRawDataFromLocalStorage() {
-  const LOCAL_STORAGE_KEY = 'userChannelCategories';
-  const POLLING_INTERVAL = 250;
-  const TIMEOUT = 7000; // הגדלנו מעט את הזמן למקרה של טעינה איטית
-
-  return new Promise((resolve, reject) => {
-    let elapsedTime = 0;
-    const intervalId = setInterval(() => {
-      elapsedTime += POLLING_INTERVAL;
-      if (elapsedTime >= TIMEOUT) {
-        clearInterval(intervalId);
-        // במקום לדחות עם שגיאה, נחזיר null כדי שה-popup יוכל להציג הודעה ברורה
-        resolve(null);
-        return;
-      }
-      const dataStr = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (dataStr) {
-        clearInterval(intervalId);
-        resolve(dataStr);
-      }
-    }, POLLING_INTERVAL);
-  });
-}
+// --- ניהול הגדרות ---
 
 /**
- * תהליך שליפת הנתונים, שופר כך שהעיבוד מתבצע ב-Service Worker.
+ * טוען את כל ההגדרות מהאחסון המסונכרן.
+ * @returns {Promise<object>} אובייקט ההגדרות או אובייקט ריק.
  */
-async function fetchAndStoreSitesFromLocalStorage() {
-  let tempTab = null;
+async function getSettings() {
   try {
-    tempTab = await chrome.tabs.create({ url: TARGET_SITE_URL, active: false });
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tempTab.id },
-      func: getRawDataFromLocalStorage
-    });
-
-    const rawData = results?.[0]?.result;
-    if (!rawData) {
-      throw new Error('לא נמצאו נתונים ב-LocalStorage של האתר. ייתכן שיש צורך להתחבר לחשבון תחילה.');
-    }
-
-    // תיקון: העיבוד מתבצע כאן, בסביבה בטוחה יותר.
-    const categories = JSON.parse(rawData);
-    const urls = categories.reduce((acc, category) => {
-      if (category && Array.isArray(category.sites)) {
-        category.sites.forEach(site => {
-          if (site && typeof site.url === 'string') {
-            acc.push(site.url);
-          }
-        });
-      }
-      return acc;
-    }, []);
-
-    const domains = [...new Set(urls.map(url => {
-      try { return new URL(url).hostname; } catch { return null; }
-    }).filter(Boolean))];
-
-    await chrome.storage.local.set({ [SITES_STORAGE_KEY]: domains });
-    console.log('TheChannel Viewer: רשימת האתרים עודכנה מ-LocalStorage ונשמרה.', domains);
-    return domains;
-
+    const data = await chrome.storage.sync.get(SETTINGS_STORAGE_KEY);
+    return data[SETTINGS_STORAGE_KEY] || {};
   } catch (error) {
-    console.error('TheChannel Viewer: נכשלה שליפת הנתונים מ-LocalStorage.', error);
-    throw error; // העבר את השגיאה הלאה כדי שה-popup יציג אותה
-  } finally {
-    if (tempTab) await chrome.tabs.remove(tempTab.id);
+    console.error('TheChannel Viewer: Error getting settings from sync storage.', error);
+    return {};
   }
 }
-
-async function getStoredSites() {
-  const data = await chrome.storage.local.get(SITES_STORAGE_KEY);
-  return data[SITES_STORAGE_KEY] || [];
-}
-
-// --- לוגיקת שינוי העוגיות (עם הגנות משופרות) ---
 
 /**
- * המאזין הראשי לשינויים בעוגיות, כעת עם הגנות חזקות.
- * @param {chrome.cookies.CookieChangeInfo} changeInfo
+ * שומר את כל אובייקט ההגדרות באחסון המסונכרן.
+ * @param {object} settings - אובייקט ההגדרות המלא לשמירה.
  */
-async function handleCookieChange(changeInfo) {
-  if (changeInfo.removed) return;
+async function saveSettings(settings) {
+  try {
+    await chrome.storage.sync.set({ [SETTINGS_STORAGE_KEY]: settings });
+    console.log('TheChannel Viewer: Settings saved to sync storage.');
+  } catch (error) {
+    console.error('TheChannel Viewer: Error saving settings to sync storage.', error);
+  }
+}
 
-  const { cookie } = changeInfo;
+/**
+ * שולף את רשימת הדומיינים של האתרים מתוך אובייקט ההגדרות.
+ * @returns {Promise<string[]>} מערך של דומיינים.
+ */
+async function getManagedDomains() {
+  const settings = await getSettings();
+  if (!settings.categories || !Array.isArray(settings.categories)) {
+    return [];
+  }
 
-  // הגנה קריטית #1: לעולם אל תיגע בעוגיות של Google.
-  // זה פותר את השגיאה עם __Host-GMAIL_SCH ומונע בעיות אבטחה.
-  if (cookie.domain.includes('google.com')) {
+  const urls = settings.categories.reduce((acc, category) => {
+    if (category && Array.isArray(category.sites)) {
+      category.sites.forEach(site => {
+        if (site && typeof site.url === 'string') {
+          acc.push(site.url);
+        }
+      });
+    }
+    return acc;
+  }, []);
+
+  return [...new Set(urls.map(url => {
+    try { return new URL(url).hostname; } catch { return null; }
+  }).filter(Boolean))];
+}
+
+
+// --- לוגיקת שינוי העוגיות ---
+
+/**
+ * פונקציית עזר לתיקון עוגייה בודדת.
+ * @param {chrome.cookies.Cookie} cookie - אובייקט העוגייה לתיקון.
+ */
+async function fixCookie(cookie) {
+  // התעלם מעוגיות גוגל, עוגיות מאובטחות מראש, או עוגיות שכבר תוקנו
+  if (cookie.domain.includes('google.com') || cookie.name.startsWith('__Host-') || cookie.name.startsWith('__Secure-')) {
     return;
   }
-  
-  // הגנה קריטית #2: אל תיגע בעוגיות אבטחה מיוחדות.
-  if (cookie.name.startsWith('__Host-') || cookie.name.startsWith('__Secure-')) {
-    return;
-  }
-
-  // סינון יעילות: אם העוגייה כבר מתאימה, אין טעם להמשיך.
   if (cookie.sameSite === 'no_restriction') {
     return;
   }
-  
-  const managedDomains = await getStoredSites();
-  if (!managedDomains || managedDomains.length === 0) return;
-  
-  const isManagedDomain = managedDomains.some(managedDomain => cookie.domain.endsWith(managedDomain));
 
-  if (!isManagedDomain) return;
-
-  console.log(`TheChannel Viewer: זוהתה עוגייה רלוונטית "${cookie.name}" לדומיין ${cookie.domain}. מתקן...`);
+  console.log(`TheChannel Viewer: Fixing cookie "${cookie.name}" for domain ${cookie.domain}.`);
+  
+  const url = `https://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
   
   try {
-    const url = `https://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
-    
+    // 1. מחק את העוגייה הישנה כדי למנוע התנגשויות
+    await chrome.cookies.remove({ url: url, name: cookie.name });
+
+    // 2. צור את העוגייה החדשה עם ההגדרות הנכונות
     await chrome.cookies.set({
       url: url,
       name: cookie.name,
@@ -135,31 +93,87 @@ async function handleCookieChange(changeInfo) {
       sameSite: 'no_restriction',
       secure: true
     });
-    console.log(`TheChannel Viewer: העוגייה "${cookie.name}" תוקנה בהצלחה.`);
+    console.log(`TheChannel Viewer: Cookie "${cookie.name}" was successfully replaced.`);
   } catch (error) {
-    console.error(`TheChannel Viewer: נכשל בתיקון העוגייה "${cookie.name}" לדומיין ${cookie.domain}. שגיאה:`, error.message);
+    console.error(`TheChannel Viewer: Failed to modify cookie "${cookie.name}". Error:`, error.message);
   }
 }
 
+/**
+ * מאזין לשינויים בעוגיות ומתקן אותן בזמן אמת.
+ */
+async function handleCookieChange(changeInfo) {
+  if (changeInfo.removed) return;
+  
+  const managedDomains = await getManagedDomains();
+  if (!managedDomains || managedDomains.length === 0) return;
+  
+  const isManagedDomain = managedDomains.some(managedDomain => changeInfo.cookie.domain.endsWith(managedDomain));
+  if (isManagedDomain) {
+    await fixCookie(changeInfo.cookie);
+  }
+}
+
+/**
+ * פונקציה חדשה: סורקת ומתקנת את כל העוגיות הקיימות עבור רשימת דומיינים.
+ * @param {string[]} domains - מערך של דומיינים לסריקה.
+ */
+async function fixCookiesForDomains(domains) {
+  if (!domains || domains.length === 0) return;
+  console.log(`TheChannel Viewer: Starting proactive cookie fix for domains:`, domains);
+
+  for (const domain of domains) {
+    try {
+      const cookies = await chrome.cookies.getAll({ domain: domain });
+      for (const cookie of cookies) {
+        await fixCookie(cookie);
+      }
+    } catch (error) {
+      console.error(`TheChannel Viewer: Could not get cookies for domain ${domain}.`, error);
+    }
+  }
+  console.log('TheChannel Viewer: Proactive cookie fix finished.');
+}
+
+
 chrome.cookies.onChanged.addListener(handleCookieChange);
 
-
-// --- מאזין להודעות מה-POPUP (ללא שינוי) ---
+// --- מאזין להודעות מה-content script ומה-popup ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'getSites') {
-    getStoredSites().then(sendResponse);
-    return true;
+  // --- בקשות מה-content script ---
+  if (request.type === 'GET_SETTINGS') {
+    getSettings().then(sendResponse);
+    return true; // נדרש עבור sendResponse אסינכרוני
   }
 
+  if (request.type === 'SAVE_SETTINGS') {
+    if (request.payload) {
+      saveSettings(request.payload).then(() => sendResponse({ success: true }));
+    } else {
+      sendResponse({ success: false, error: 'No payload received' });
+    }
+    return true;
+  }
+  
+  // --- בקשות מה-popup ---
   if (request.action === 'fetchSites') {
-    fetchAndStoreSitesFromLocalStorage()
+    getManagedDomains()
       .then(sites => sendResponse({ success: true, data: sites }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
 
-  if (request.action === 'applyRules') {
-    sendResponse({ success: true });
-    return true;
+  // חדש: בקשה להפעיל תיקון יזום של עוגיות
+  if (request.action === 'triggerCookieFix') {
+    if (request.domains && Array.isArray(request.domains)) {
+      // הפעל את הפונקציה ואל תחכה לסיומה כדי שהפופאפ לא ייתקע
+      fixCookiesForDomains(request.domains); 
+      sendResponse({ success: true, message: 'Cookie fix process initiated.' });
+    } else {
+      sendResponse({ success: false, error: 'No domains provided.' });
+    }
+    return true; // אין צורך להפוך לאסינכרוני כאן
   }
+  
+  return false;
 });

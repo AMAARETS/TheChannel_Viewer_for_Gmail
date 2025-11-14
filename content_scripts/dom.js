@@ -67,7 +67,7 @@
     container.style.cssText = 'display:none; position:absolute; top:0; left:0; width:100%; height:100%;';
 
     const iframe = document.createElement('iframe');
-    iframe.src = 'https://thechannel-viewer.clickandgo.cfd';
+    iframe.src = 'http://localhost:4200';
     iframe.style.cssText = 'width:100%; height:100%; border:none;';
     iframe.allow = 'clipboard-read; clipboard-write';
 

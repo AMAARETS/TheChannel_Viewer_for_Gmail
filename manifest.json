@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TheChannel Viewer for Gmail",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "מאפשר צפיה באתרי הערוץ מתוך ג'ימייל ומתקן הגדרות עוגיות.",
   "icons": {
     "48": "icons/icon-48.png",
@@ -9,12 +9,10 @@
   },
   "permissions": [
     "storage",
-    "scripting",
     "cookies"
   ],
   "host_permissions": [
-    "https://mail.google.com/",
-    "https://thechannel-viewer.clickandgo.cfd/"
+    "https://mail.google.com/"
   ],
   "optional_host_permissions": [
     "*://*/*"
@@ -33,6 +31,14 @@
         "content_scripts/events.js",
         "content_scripts/main.js"
       ]
+    },
+    {
+      "matches": [
+        "https://thechannel-viewer.clickandgo.cfd/*",
+        "http://localhost:4200/*"
+      ],
+      "js": ["content_scripts/website_bridge.js"],
+      "run_at": "document_start"
     }
   ],
   "action": {

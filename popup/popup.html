@@ -8,27 +8,34 @@
 <body>
     <div class="container">
         <header>
-            <h1>הגדרות אתרי הערוץ</h1>
-            <p>ניהול הרשאות לתיקון עוגיות באתרים.</p>
+            <h1>התחברות לאתרי הערוץ בפלטפורמה</h1>
+            <p>בחרו את האתרים שבהם תרצו לצפות ב<strong>"אתר הערוץ"</strong></p>
         </header>
-        
-        <div class="actions">
-            <button id="update-sites-btn">טען רשימת אתרים</button>
-        </div>
 
-        <div id="sites-list-container">
-            <h2>רשימת אתרים לניהול:</h2>
+        <main id="sites-list-container" class="loading">
+            <div id="loader" class="loader">טוען...</div>
+            <div class="site-item select-all-container">
+                <label for="select-all">
+                    <input type="checkbox" id="select-all" />
+                    <span>בחר הכל</span>
+                </label>
+            </div>
             <ul id="sites-list">
-                <!-- רשימת האתרים תופיע כאן -->
+                <!-- רשימת האתרים תופיע כאן דינמית -->
             </ul>
-        </div>
+        </main>
         
         <div class="actions">
-            <button id="apply-settings-btn" class="primary" disabled>בקש הרשאות והחל שינויים</button>
+            <button id="refresh-btn" title="רענן רשימת אתרים">
+                <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 0 24 24" width="20px" fill="#5f6368"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            </button>
+            <button id="apply-settings-btn" class="primary" disabled>אישור ושמירה</button>
         </div>
-        
-        <div id="status-message"></div>
     </div>
+
+    <!-- אלמנט להצגת הודעות סטטוס זמניות -->
+    <div id="toast-notification"></div>
+
     <script src="popup.js"></script>
 </body>
 </html>

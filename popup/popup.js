@@ -1,92 +1,171 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const updateBtn = document.getElementById('update-sites-btn');
+    const refreshBtn = document.getElementById('refresh-btn');
     const applyBtn = document.getElementById('apply-settings-btn');
     const sitesList = document.getElementById('sites-list');
-    const statusMessage = document.getElementById('status-message');
+    const sitesListContainer = document.getElementById('sites-list-container');
+    const toast = document.getElementById('toast-notification');
+    const selectAllCheckbox = document.getElementById('select-all');
 
     let currentSites = [];
+    let toastTimeout;
 
-    function showStatus(message, type = 'info') {
-        statusMessage.textContent = message;
-        statusMessage.className = type;
+    function showToast(message, type = 'success', duration = 3000) {
+        clearTimeout(toastTimeout);
+        toast.textContent = message;
+        toast.className = `toast show ${type}`;
+        toastTimeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, duration);
     }
 
-    function displaySites(sites) {
+    function updateApplyButtonState() {
+        const anyCheckboxChecked = document.querySelector('#sites-list input[type="checkbox"]:checked');
+        applyBtn.disabled = !anyCheckboxChecked;
+    }
+
+    async function displaySites(sites) {
         sitesList.innerHTML = '';
-        currentSites = sites;
+        currentSites = sites.sort();
 
         if (sites.length === 0) {
-            sitesList.innerHTML = '<li>לא נמצאו אתרים. לחץ על "טען רשימת אתרים".</li>';
+            sitesList.innerHTML = '<li class="empty-state">לא נמצאו אתרים שמורים.</li>';
+            document.querySelector('.select-all-container').style.display = 'none';
             applyBtn.disabled = true;
             return;
         }
+        
+        document.querySelector('.select-all-container').style.display = 'flex';
+
+        const permissions = await chrome.permissions.getAll();
+        const grantedOrigins = new Set(permissions.origins || []);
 
         sites.forEach(site => {
             const li = document.createElement('li');
-            li.textContent = site;
+            li.className = 'site-item';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `site-${site}`;
+            checkbox.value = site;
+            checkbox.checked = grantedOrigins.has(`*://${site}/*`);
+
+            const label = document.createElement('label');
+            label.htmlFor = `site-${site}`;
+            label.innerHTML = `<span>${site}</span>`;
+            
+            li.appendChild(checkbox);
+            li.appendChild(label);
             sitesList.appendChild(li);
         });
 
-        applyBtn.disabled = false;
+        updateSelectAllCheckboxState();
     }
 
-    chrome.runtime.sendMessage({ action: 'getSites' }, (sites) => {
-        if (chrome.runtime.lastError) {
-            showStatus(`שגיאה: ${chrome.runtime.lastError.message}`, 'error');
+    function handleSiteCheckboxChange() {
+        updateSelectAllCheckboxState();
+        updateApplyButtonState();
+    }
+
+    function updateSelectAllCheckboxState() {
+        const allCheckboxes = document.querySelectorAll('#sites-list input[type="checkbox"]');
+        if (allCheckboxes.length === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
             return;
         }
-        displaySites(sites || []);
+        const checkedCount = Array.from(allCheckboxes).filter(cb => cb.checked).length;
+        
+        if (checkedCount === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        } else if (checkedCount === allCheckboxes.length) {
+            selectAllCheckbox.checked = true;
+            selectAllCheckbox.indeterminate = false;
+        } else {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = true;
+        }
+    }
+
+    selectAllCheckbox.addEventListener('change', () => {
+        const allCheckboxes = document.querySelectorAll('#sites-list input[type="checkbox"]');
+        allCheckboxes.forEach(checkbox => {
+            checkbox.checked = selectAllCheckbox.checked;
+        });
+        updateApplyButtonState();
     });
 
-    updateBtn.addEventListener('click', () => {
-        showStatus('טוען רשימת אתרים...', 'info');
-        updateBtn.disabled = true;
-        
-        chrome.runtime.sendMessage({ action: 'fetchSites' }, (response) => {
-            updateBtn.disabled = false;
+    sitesList.addEventListener('change', (event) => {
+        if (event.target.type === 'checkbox') {
+            handleSiteCheckboxChange();
+        }
+    });
+
+    async function refreshSitesList() {
+        sitesListContainer.classList.add('loading');
+        applyBtn.disabled = true;
+        refreshBtn.disabled = true;
+
+        chrome.runtime.sendMessage({ action: 'fetchSites' }, async (response) => {
+            refreshBtn.disabled = false;
+            sitesListContainer.classList.remove('loading');
+
             if (chrome.runtime.lastError) {
-                showStatus(`שגיאה: ${chrome.runtime.lastError.message}`, 'error');
+                showToast(`שגיאה: ${chrome.runtime.lastError.message}`, 'error');
                 return;
             }
 
             if (response && response.success) {
-                const sites = response.data;
-                if (sites && sites.length > 0) {
-                    displaySites(sites);
-                    showStatus('רשימת האתרים עודכנה בהצלחה!', 'success');
+                await displaySites(response.data || []);
+                showToast('רשימת האתרים עודכנה', 'success');
+            } else {
+                await displaySites([]);
+                showToast(response.error || 'אירעה שגיאה בטעינת האתרים.', 'error');
+            }
+            updateApplyButtonState();
+        });
+    }
+
+    applyBtn.addEventListener('click', async () => {
+        const checkboxes = document.querySelectorAll('#sites-list input[type="checkbox"]');
+        const sitesToRequest = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const sitesToRemove = Array.from(checkboxes).filter(cb => !cb.checked).map(cb => cb.value);
+
+        const originsToRequest = sitesToRequest.map(domain => `*://${domain}/*`);
+        const originsToRemove = sitesToRemove.map(domain => `*://${domain}/*`);
+
+        try {
+            // הסר הרשאות אם צריך
+            if (originsToRemove.length > 0) {
+                await chrome.permissions.remove({ origins: originsToRemove });
+            }
+
+            // בקש הרשאות חדשות אם צריך
+            if (originsToRequest.length > 0) {
+                showToast('יש לאשר את ההרשאות בחלון הקופץ...', 'info', 5000);
+                const granted = await chrome.permissions.request({ origins: originsToRequest });
+
+                if (granted) {
+                    showToast('האישור התקבל! האתרים שבחרתם ישולבו כעת באתר הערוץ.', 'success');
+                    // *** החלק החדש: הפעל את התיקון היזום ***
+                    chrome.runtime.sendMessage({
+                        action: 'triggerCookieFix',
+                        domains: sitesToRequest
+                    });
                 } else {
-                    displaySites([]);
-                    showStatus('רשימת האתרים שהתקבלה ריקה.', 'info');
+                    showToast('הגישה נדחתה. לא יהיה ניתן לאפשר את כל האתרים.', 'error');
                 }
             } else {
-                displaySites([]);
-                // שיפור: הודעת שגיאה ברורה יותר
-                const defaultError = 'אירעה שגיאה לא ידועה בטעינה.';
-                showStatus(response.error || defaultError, 'error');
+                showToast('הגישה לאתרים הוסרה. לא יהיה ניתן לאפשר את הצפיה בכולם מאתר הערוץ', 'success');
             }
-        });
-    });
-    
-    applyBtn.addEventListener('click', async () => {
-        if (currentSites.length === 0) {
-            showStatus('אין אתרים להחלת שינויים.', 'error');
-            return;
-        }
-        
-        const origins = currentSites.map(domain => `*://${domain}/*`);
-        
-        try {
-            showStatus('ממתין לאישור הרשאות מהמשתמש...', 'info');
-            const granted = await chrome.permissions.request({ origins });
 
-            if (granted) {
-                showStatus('ההרשאות התקבלו. המערכת תתקן עוגיות באופן אוטומטי.', 'success');
-            } else {
-                showStatus('ההרשאות נדחו. לא ניתן להחיל את השינויים.', 'error');
-            }
         } catch (error) {
             console.error(error);
-            showStatus(`אירעה שגיאה: ${error.message}`, 'error');
+            showToast(`אירעה שגיאה: ${error.message}`, 'error');
         }
     });
+
+    // --- טעינה ראשונית ---
+    refreshBtn.addEventListener('click', refreshSitesList);
+    refreshSitesList();
 });
