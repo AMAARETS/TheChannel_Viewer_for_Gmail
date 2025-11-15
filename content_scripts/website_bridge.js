@@ -7,11 +7,13 @@
 const MESSAGE_TYPES_FROM_PAGE = {
   APP_READY: 'THE_CHANNEL_APP_READY',
   SETTINGS_CHANGED: 'THE_CHANNEL_SETTINGS_CHANGED',
+  GET_MANAGED_DOMAINS: 'THE_CHANNEL_GET_MANAGED_DOMAINS', // חדש
 };
 
 const MESSAGE_TYPES_TO_PAGE = {
   SETTINGS_DATA: 'THE_CHANNEL_SETTINGS_DATA',
-  EXTENSION_READY: 'THE_CHANNEL_EXTENSION_READY'
+  EXTENSION_READY: 'THE_CHANNEL_EXTENSION_READY',
+  MANAGED_DOMAINS_DATA: 'THE_CHANNEL_MANAGED_DOMAINS_DATA', // חדש
 };
 
 console.log('TheChannel Viewer: Website Bridge loaded.');
@@ -32,18 +34,30 @@ window.addEventListener('THE_CHANNEL_TO_EXTENSION', (event) => {
 
   if (type === MESSAGE_TYPES_FROM_PAGE.APP_READY) {
     // האתר מוכן ומבקש הגדרות
-    chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (settings) => {
+    chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (response) => {
       if (chrome.runtime.lastError) {
         console.error(chrome.runtime.lastError.message);
         return;
       }
       // שלח את ההגדרות בחזרה לאתר
       window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
-        detail: { type: MESSAGE_TYPES_TO_PAGE.SETTINGS_DATA, payload: settings }
+        detail: { type: MESSAGE_TYPES_TO_PAGE.SETTINGS_DATA, payload: response }
       }));
     });
   } else if (type === MESSAGE_TYPES_FROM_PAGE.SETTINGS_CHANGED) {
     // האתר שולח הגדרות מעודכנות לשמירה
     chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', payload: payload });
+  } else if (type === MESSAGE_TYPES_FROM_PAGE.GET_MANAGED_DOMAINS) {
+    // *** חדש: האתר מבקש את רשימת הדומיינים המנוהלים ***
+    chrome.runtime.sendMessage({ type: 'GET_MANAGED_DOMAINS' }, (domains) => {
+      if (chrome.runtime.lastError) {
+        console.error(chrome.runtime.lastError.message);
+        return;
+      }
+      // שלח את הרשימה בחזרה לאתר
+      window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
+        detail: { type: MESSAGE_TYPES_TO_PAGE.MANAGED_DOMAINS_DATA, payload: domains }
+      }));
+    });
   }
 });
