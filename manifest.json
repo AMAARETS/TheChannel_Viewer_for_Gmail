@@ -5,7 +5,8 @@
   "description": "מאפשר צפיה באתרי הערוץ מתוך ג'ימייל",
   "host_permissions": [
     "https://mail.google.com/",
-    "https://cdn.jsdelivr.net/"
+    "https://cdn.jsdelivr.net/",
+    "https://thechannel-viewer.clickandgo.cfd/*"
   ],
   "content_scripts": [
     {
@@ -17,6 +18,14 @@
         "js/events.js",
         "js/main.js"
       ]
+    },
+    {
+      "matches": [
+        "https://thechannel-viewer.clickandgo.cfd/*",
+        "http://localhost:4200/*"
+      ],
+      "js": ["content_scripts/website_bridge.js"],
+      "run_at": "document_start"
     }
   ],
   "icons": {
