@@ -2,6 +2,7 @@
 const TheChannelViewer = {
   state: {
     lastGmailHash: '#inbox',
+    lastActiveApp: 'mail', // שומר איזו אפליקציה הייתה פעילה לפני המעבר לערוץ (mail/chat/meet)
     wasSidebarClosedByExtension: false,
     HamburgerClick: true,
     isInitialized: false,

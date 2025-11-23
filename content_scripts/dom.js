@@ -1,6 +1,17 @@
 // קובץ זה מרכז את כל הפונקציונליות האחראית על אינטראקציה עם ה-DOM.
 (function(app) {
 
+  // פונקציה עזר לחיפוש אלמנט עם תמיכה במזהים מרובים
+  function findElement(selectors) {
+    if (!selectors) return null;
+    const selectorArray = Array.isArray(selectors) ? selectors : [selectors];
+    for (const selector of selectorArray) {
+      const element = document.querySelector(selector);
+      if (element) return element;
+    }
+    return null;
+  }
+
   // שולף את כל אלמנטי המפתח מהדף ושומר אותם ב-state
   app.dom.queryElements = function() {
     const els = app.state.elements;
@@ -8,55 +19,96 @@
     
     if (!selectors) return false; // ודא שהמזהים נטענו
 
-    els.gmailView = document.querySelector(selectors.gmailView);
-    els.iframeParent = document.querySelector(selectors.iframeParent);
-    els.hamburgerButton = document.querySelector(selectors.hamburgerButton);
-    els.searchBar = document.querySelector(selectors.searchBar);
-    els.navContainer = document.querySelector(selectors.navContainer);
+    els.gmailView = findElement(selectors.gmailView);
+    els.iframeParent = findElement(selectors.iframeParent);
+    els.hamburgerButton = findElement(selectors.hamburgerButton);
+    els.searchBar = findElement(selectors.searchBar);
+    els.navContainer = findElement(selectors.navContainer);
     
     // איתור כפתורי הניווט הראשיים של Gmail
     if (els.navContainer) {
+      const buttonContainerSelector = Array.isArray(selectors.buttonContainer) ? selectors.buttonContainer[0] : selectors.buttonContainer;
+      
       const mailButtonLabel = els.navContainer.querySelector('div[aria-label^="אימייל"], div[aria-label^="Mail"]');
-      els.mailButton = mailButtonLabel ? mailButtonLabel.closest(selectors.buttonContainer) : null;
+      els.mailButton = mailButtonLabel ? mailButtonLabel.closest(buttonContainerSelector) : null;
       
-      const chatButtonLabel = els.navContainer.querySelector('div[aria-label^="צ\'אט"], div[aria-label^="Chat"]');
-      els.chatButton = chatButtonLabel ? chatButtonLabel.closest(selectors.buttonContainer) : null;
+      const chatButtonLabel = findElement(selectors.chatButton);
+      els.chatButton = chatButtonLabel ? chatButtonLabel.closest(buttonContainerSelector) : null;
       
-      const meetButtonLabel = els.navContainer.querySelector('div[aria-label^="Meet"]');
-      els.meetButton = meetButtonLabel ? meetButtonLabel.closest(selectors.buttonContainer) : null;
+      const meetButtonLabel = findElement(selectors.meetButton);
+      els.meetButton = meetButtonLabel ? meetButtonLabel.closest(buttonContainerSelector) : null;
     }
 
-    return Object.values(els).every(el => el !== null);
+    // בדיקה מינימלית - רק שהסרגל קיים
+    return els.navContainer !== null;
   };
 
   // יוצר את כפתור הניווט של TheChannel
   app.dom.createNavButton = function() {
     const selectors = app.state.selectors;
-    // נשתמש בכפתור הצ'אט שכבר איתרנו ב-queryElements
-    const chatButtonContainer = app.state.elements.chatButton;
-    if (!chatButtonContainer) return null;
-
-    const newButton = chatButtonContainer.cloneNode(true);
-    newButton.id = 'the-channel-button';
-    newButton.classList.remove(selectors.activeNavButton, selectors.activeNavButton2);
-    newButton.removeAttribute('jscontroller');
-    newButton.querySelector('[aria-label]')?.setAttribute('aria-label', 'TheChannel');
-    newButton.querySelector(selectors.buttonLabel).textContent = 'הערוץ';
+    const navContainer = app.state.elements.navContainer;
     
-    const iconContainer = newButton.querySelector(selectors.buttonIconContainer);
-    if (iconContainer) {
-        iconContainer.addEventListener('mouseover', () => {
-            if (!newButton.classList.contains(selectors.activeNavButton)) {
-                iconContainer.style.backgroundColor = '#f1f3f4';
-            }
-        });
-        iconContainer.addEventListener('mouseout', () => {
-            iconContainer.style.backgroundColor = 'transparent';
-        });
+    if (!navContainer) return null;
+
+    // יצירת הכפתור מאפס
+    const newButton = document.createElement('div');
+    newButton.id = 'the-channel-button';
+    newButton.className = findElement(selectors.buttonContainer)?.className || 'Xa';
+    newButton.setAttribute('role', 'link');
+    newButton.setAttribute('tabindex', '0');
+    newButton.setAttribute('aria-label', 'TheChannel');
+
+    // יצירת מיכל האייקון
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'the-channel-icon-container';
+
+    // יצירת האייקון SVG - מצב רגיל (מלא)
+    const iconSvgDefault = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    iconSvgDefault.setAttribute('class', 'the-channel-icon the-channel-icon-default');
+    iconSvgDefault.setAttribute('viewBox', '0 0 50 50');
+    iconSvgDefault.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    
+    const iconPathDefault = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    iconPathDefault.setAttribute('d', 'M386 420 c-70 -53 -139 -73 -253 -74 l-103 -1 0 -68 c0 -38 8 -98 17 -133 l17 -64 48 0 c48 0 48 0 42 28 -4 15 -11 37 -15 50 -12 32 -13 32 25 32 52 0 155 -35 216 -74 l55 -35 3 71 c2 45 8 76 17 85 19 18 19 34 0 59 -9 12 -14 43 -15 87 0 37 -3 67 -7 66 -5 0 -25 -13 -47 -29z m24 -156 c0 -69 -3 -124 -7 -122 -109 54 -142 68 -174 73 -38 7 -39 8 -39 49 l0 43 63 17 c34 9 80 28 102 41 22 13 43 24 48 24 4 1 7 -56 7 -125z m-250 1 l0 -45 -50 0 -50 0 0 45 0 45 50 0 50 0 0 -45z m-56 -99 c3 -13 9 -31 12 -40 4 -10 1 -16 -9 -16 -19 0 -23 5 -32 48 -5 25 -3 32 8 32 8 0 18 -11 21 -24z');
+    iconPathDefault.setAttribute('transform', 'translate(0, 50) scale(0.1, -0.1)');
+    iconPathDefault.setAttribute('fill', 'currentColor');
+    
+    iconSvgDefault.appendChild(iconPathDefault);
+    iconContainer.appendChild(iconSvgDefault);
+
+    // יצירת האייקון SVG - מצב נבחר (מלא לחלוטין מקובץ "מגהפון מלא.svg")
+    const iconSvgSelected = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    iconSvgSelected.setAttribute('class', 'the-channel-icon the-channel-icon-selected');
+    iconSvgSelected.setAttribute('viewBox', '0 0 50 50');
+    iconSvgSelected.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    
+    // path מלא ללא פרטים פנימיים
+    const iconPathSelected = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    iconPathSelected.setAttribute('d', 'M386 420 c-70 -53 -139 -73 -253 -74 l-103 -1 0 -68 c0 -38 8 -98 17 -133 l17 -64 48 0 c48 0 48 0 42 28 -4 15 -11 37 -15 50 -12 32 -13 32 25 32 52 0 155 -35 216 -74 l55 -35 3 71 c2 45 8 76 17 85 19 18 19 34 0 59 -9 12 -14 43 -15 87 0 37 -3 67 -7 66 -5 0 -25 -13 -47 -29z');
+    iconPathSelected.setAttribute('transform', 'translate(0, 50) scale(0.1, -0.1)');
+    iconPathSelected.setAttribute('fill', 'currentColor');
+    
+    iconSvgSelected.appendChild(iconPathSelected);
+    iconContainer.appendChild(iconSvgSelected);
+
+    // יצירת תווית הטקסט
+    const label = document.createElement('div');
+    label.className = 'the-channel-label';
+    label.textContent = 'הערוץ';
+
+    // הרכבת הכפתור
+    newButton.appendChild(iconContainer);
+    newButton.appendChild(label);
+
+    // הוספת הכפתור לסרגל הניווט
+    const spacer = findElement(selectors.navSpacer);
+    if (spacer) {
+      navContainer.insertBefore(newButton, spacer);
+    } else {
+      // אם אין spacer, נוסיף בסוף
+      navContainer.appendChild(newButton);
     }
 
-    const spacer = app.state.elements.navContainer.querySelector(selectors.navSpacer);
-    app.state.elements.navContainer.insertBefore(newButton, spacer);
     return newButton;
   };
 
@@ -81,21 +133,39 @@
     const selectors = app.state.selectors;
     const isTheChannelActive = window.location.hash.startsWith('#the-channel');
     
-    const activeClasses = [selectors.activeNavButton, selectors.activeNavButton2];
+    const activeClassesArray = [
+      ...(Array.isArray(selectors.activeNavButton) ? selectors.activeNavButton : [selectors.activeNavButton]),
+      ...(Array.isArray(selectors.activeNavButton2) ? selectors.activeNavButton2 : [selectors.activeNavButton2])
+    ];
 
+    const theChannelButton = app.state.elements.theChannelButton;
+    
     if (isTheChannelActive) {
-      document.querySelectorAll(`${selectors.navContainer} ${selectors.buttonContainer}`).forEach(btn => btn.classList.remove(...activeClasses));
-      app.state.elements.theChannelButton?.classList.add(...activeClasses);
+      // הסרת מחלקות פעילות מכל הכפתורים
+      const navContainerSelector = Array.isArray(selectors.navContainer) ? selectors.navContainer[0] : selectors.navContainer;
+      const buttonContainerSelector = Array.isArray(selectors.buttonContainer) ? selectors.buttonContainer[0] : selectors.buttonContainer;
+      document.querySelectorAll(`${navContainerSelector} ${buttonContainerSelector}`).forEach(btn => {
+        btn.classList.remove(...activeClassesArray);
+      });
+      
+      // הוספת מחלקות פעילות לכפתור TheChannel
+      if (theChannelButton) {
+        theChannelButton.classList.add(...activeClassesArray);
+      }
     } else {
-      app.state.elements.theChannelButton?.classList.remove(...activeClasses);
+      // הסרת מחלקות פעילות מכפתור TheChannel
+      if (theChannelButton) {
+        theChannelButton.classList.remove(...activeClassesArray);
+      }
+      
       // הלוגיקה פה נשארת זהה כי היא מטפלת במצב *אחרי* שהניווט כבר התבצע
       if (window.location.hash.startsWith('#chat')) {
-        app.state.elements.chatButton?.classList.add(...activeClasses);
-      } else if (window.location.hash.startsWith('#meet')) {
-        app.state.elements.meetButton?.classList.add(...activeClasses);
+        app.state.elements.chatButton?.classList.add(...activeClassesArray);
+      } else if (window.location.hash.startsWith('#meet') || window.location.hash.startsWith('#calls')) {
+        app.state.elements.meetButton?.classList.add(...activeClassesArray);
       } else {
         // ברירת המחדל היא כפתור המייל
-        app.state.elements.mailButton?.classList.add(...activeClasses);
+        app.state.elements.mailButton?.classList.add(...activeClassesArray);
       }
     }
   };
@@ -103,9 +173,10 @@
   // מעדכן את נראות כפתור "אימייל חדש"
   app.dom.updateComposeButtonVisibility = function() {
       const selectors = app.state.selectors;
-      const gmailSidebar = document.querySelector(selectors.gmailSidebarContainer)?.closest(selectors.closestSidebar);
-      const chatSidebar = document.querySelector(selectors.chatSidebarContainer)?.closest(selectors.closestSidebar);
-      const activeClass = selectors.activeNavButton2;
+      const closestSidebarSelector = Array.isArray(selectors.closestSidebar) ? selectors.closestSidebar[0] : selectors.closestSidebar;
+      const gmailSidebar = findElement(selectors.gmailSidebarContainer)?.closest(closestSidebarSelector);
+      const chatSidebar = findElement(selectors.chatSidebarContainer)?.closest(closestSidebarSelector);
+      const activeClass = Array.isArray(selectors.activeNavButton2) ? selectors.activeNavButton2[0] : selectors.activeNavButton2;
 
       if (window.location.hash.startsWith('#calls')) {
         if (gmailSidebar && chatSidebar) {

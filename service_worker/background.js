@@ -75,6 +75,41 @@ async function getSitesDomains() {
 }
 
 /**
+ * שולף את רשימת האתרים עם השמות והדומיינים שלהם.
+ * @returns {Promise<Array<{name: string, domain: string}>>} מערך של אובייקטי אתרים.
+ */
+async function getSitesWithNames() {
+  const { settings } = await getSettingsWithTimestamp();
+  if (!settings.categories || !Array.isArray(settings.categories)) {
+    return [];
+  }
+
+  const sitesMap = new Map();
+  
+  settings.categories.forEach(category => {
+    if (category && Array.isArray(category.sites)) {
+      category.sites.forEach(site => {
+        if (site && typeof site.url === 'string') {
+          try {
+            const domain = new URL(site.url).hostname;
+            if (!sitesMap.has(domain)) {
+              sitesMap.set(domain, {
+                name: site.name || domain,
+                domain: domain
+              });
+            }
+          } catch {
+            // ignore invalid URLs
+          }
+        }
+      });
+    }
+  });
+
+  return Array.from(sitesMap.values());
+}
+
+/**
  * חדש: שולף את רשימת הדומיינים שהתוסף קיבל הרשאה אליהם.
  * @returns {Promise<string[]>} מערך של דומיינים מורשים.
  */
@@ -194,7 +229,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   // --- בקשות מה-popup ---
   if (request.action === 'fetchSites') {
-    getSitesDomains()
+    getSitesWithNames()
       .then(sites => sendResponse({ success: true, data: sites }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;

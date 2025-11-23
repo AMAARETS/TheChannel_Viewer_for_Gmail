@@ -19,13 +19,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateApplyButtonState() {
-        const anyCheckboxChecked = document.querySelector('#sites-list input[type="checkbox"]:checked');
-        applyBtn.disabled = !anyCheckboxChecked;
+        const checkedCheckboxes = document.querySelectorAll('#sites-list input[type="checkbox"]:checked');
+        const count = checkedCheckboxes.length;
+        const badge = document.getElementById('selected-count');
+        
+        applyBtn.disabled = count === 0;
+        
+        if (badge) {
+            badge.textContent = count;
+            badge.style.animation = 'none';
+            setTimeout(() => {
+                badge.style.animation = '';
+            }, 10);
+        }
     }
 
     async function displaySites(sites) {
         sitesList.innerHTML = '';
-        currentSites = sites.sort();
+        currentSites = sites;
 
         if (sites.length === 0) {
             sitesList.innerHTML = '<li class="empty-state">לא נמצאו אתרים שמורים.</li>';
@@ -34,24 +45,43 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
+        // Sort sites by name
+        sites.sort((a, b) => {
+            const nameA = (a.name || a.domain || a || '').toLowerCase();
+            const nameB = (b.name || b.domain || b || '').toLowerCase();
+            return nameA.localeCompare(nameB, 'he');
+        });
+        
         document.querySelector('.select-all-container').style.display = 'flex';
 
         const permissions = await chrome.permissions.getAll();
         const grantedOrigins = new Set(permissions.origins || []);
 
-        sites.forEach(site => {
+        sites.forEach((site, index) => {
+            // Support both old format (string) and new format (object with name and domain)
+            const domain = typeof site === 'string' ? site : site.domain;
+            const siteName = typeof site === 'string' ? domain : (site.name || domain);
+            
             const li = document.createElement('li');
             li.className = 'site-item';
+            li.style.animationDelay = `${index * 0.05}s`;
             
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.id = `site-${site}`;
-            checkbox.value = site;
-            checkbox.checked = grantedOrigins.has(`*://${site}/*`);
+            checkbox.id = `site-${domain}`;
+            checkbox.value = domain;
+            checkbox.checked = grantedOrigins.has(`*://${domain}/*`);
 
             const label = document.createElement('label');
-            label.htmlFor = `site-${site}`;
-            label.innerHTML = `<span>${site}</span>`;
+            label.htmlFor = `site-${domain}`;
+            label.title = `לחץ לבחירה: ${siteName}`;
+            
+            label.innerHTML = `
+                <div class="site-info">
+                    <span class="site-name">${siteName}</span>
+                    <span class="site-url">${domain}</span>
+                </div>
+            `;
             
             li.appendChild(checkbox);
             li.appendChild(label);
@@ -97,6 +127,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     sitesList.addEventListener('change', (event) => {
         if (event.target.type === 'checkbox') {
+            // Add animation to the parent site-item
+            const siteItem = event.target.closest('.site-item');
+            if (siteItem) {
+                siteItem.style.animation = 'none';
+                setTimeout(() => {
+                    siteItem.style.animation = '';
+                }, 10);
+            }
             handleSiteCheckboxChange();
         }
     });
@@ -125,6 +163,31 @@ document.addEventListener('DOMContentLoaded', () => {
             updateApplyButtonState();
         });
     }
+
+    // Ripple effect for buttons
+    function createRipple(event) {
+        const button = event.currentTarget;
+        const ripple = document.createElement('span');
+        const rect = button.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        const x = event.clientX - rect.left - size / 2;
+        const y = event.clientY - rect.top - size / 2;
+
+        ripple.style.width = ripple.style.height = `${size}px`;
+        ripple.style.left = `${x}px`;
+        ripple.style.top = `${y}px`;
+        ripple.classList.add('ripple');
+
+        button.appendChild(ripple);
+
+        setTimeout(() => {
+            ripple.remove();
+        }, 600);
+    }
+
+    document.querySelectorAll('button').forEach(button => {
+        button.addEventListener('click', createRipple);
+    });
 
     applyBtn.addEventListener('click', async () => {
         const checkboxes = document.querySelectorAll('#sites-list input[type="checkbox"]');

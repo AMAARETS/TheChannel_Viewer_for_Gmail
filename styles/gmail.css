@@ -1,3 +1,69 @@
 .the-channel-active-hide-gmail {
     display: none !important;
 }
+
+/* עיצוב כפתור TheChannel */
+#the-channel-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding: 4px 8px;
+}
+
+#the-channel-button .the-channel-icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 28px;
+    border-radius: 22px;
+    transition: background-color 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+    margin-bottom: 2px;
+}
+
+#the-channel-button:not(.acZ):hover .the-channel-icon-container {
+    background-color: rgba(60, 64, 67, 0.08);
+}
+
+#the-channel-button.acZ .the-channel-icon-container {
+    background-color: #bacbe7;
+}
+
+#the-channel-button .the-channel-icon {
+    width: 20px;
+    height: 20px;
+    fill: #5f6368;
+    transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+#the-channel-button.acZ .the-channel-icon {
+    fill: #001d35;
+}
+
+#the-channel-button .the-channel-icon-selected {
+    display: none;
+}
+
+#the-channel-button.acZ .the-channel-icon-default {
+    display: none;
+}
+
+#the-channel-button.acZ .the-channel-icon-selected {
+    display: block;
+}
+
+#the-channel-button .the-channel-label {
+    font-size: .75rem;
+    font-weight: 500;
+    color: #5f6368;
+    transition: color 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+    white-space: nowrap;
+}
+
+#the-channel-button.acZ .the-channel-label {
+    color: #001d35;
+    font-weight: 700;
+}
