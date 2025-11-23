@@ -121,7 +121,7 @@
     const iframe = document.createElement('iframe');
     iframe.src = 'https://thechannel-viewer.clickandgo.cfd/';
     iframe.style.cssText = 'width:100%; height:100%; border:none;';
-    iframe.allow = 'clipboard-read; clipboard-write;  fullscreen';
+    iframe.allow = 'clipboard-read; clipboard-write; fullscreen';
 
     container.appendChild(iframe);
     app.state.elements.iframeParent.appendChild(container);
