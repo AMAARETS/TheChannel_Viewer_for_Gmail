@@ -68,6 +68,9 @@
     
     window.addEventListener('message', handleMessagesFromIframe);
     
+    // בדיקה והחזרת הסרגל אם נסגר על ידי התוסף לפני רענון
+    app.storage.checkAndRestoreSidebar();
+    
     app.state.isInitialized = true;
     console.log('TheChannel Viewer for Gmail was successfully initialized!');
     return true;

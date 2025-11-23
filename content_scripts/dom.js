@@ -121,7 +121,7 @@
     const iframe = document.createElement('iframe');
     iframe.src = 'https://thechannel-viewer.clickandgo.cfd/';
     iframe.style.cssText = 'width:100%; height:100%; border:none;';
-    iframe.allow = 'clipboard-read; clipboard-write';
+    iframe.allow = 'clipboard-read; clipboard-write;  fullscreen';
 
     container.appendChild(iframe);
     app.state.elements.iframeParent.appendChild(container);
@@ -202,6 +202,8 @@
       els.hamburgerButton.click();
       app.state.HamburgerClick = true;
       app.state.wasSidebarClosedByExtension = true;
+      // שמירת המצב ב-storage כדי ששרוד רענון דף
+      app.storage.setSidebarClosedByExtension(true);
     }
 
     els.gmailView?.classList.add('the-channel-active-hide-gmail');
@@ -223,6 +225,8 @@
     if (app.state.wasSidebarClosedByExtension) {
       setTimeout(() => els.hamburgerButton?.click(), 0);
       app.state.wasSidebarClosedByExtension = false;
+      // ניקוי המצב מה-storage
+      app.storage.setSidebarClosedByExtension(false);
     }
     this.updateActiveButtonVisuals();
   };

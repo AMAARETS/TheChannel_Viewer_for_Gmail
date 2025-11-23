@@ -27,6 +27,7 @@
       "css": ["styles/gmail.css"],
       "js": [
         "content_scripts/state.js",
+        "content_scripts/storage.js",
         "content_scripts/dom.js",
         "content_scripts/events.js",
         "content_scripts/main.js"

@@ -15,5 +15,6 @@ const TheChannelViewer = {
     selectors: null // כאן נשמור את המזהים שייטענו מהשרת
   },
   dom: {},
-  events: {}
+  events: {},
+  storage: {} // פונקציות לניהול אחסון
 };
