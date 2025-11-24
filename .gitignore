@@ -2,3 +2,14 @@ js/mail.html
 TheChannel_Viewer_for_Gmail.xml
 מגהפון מלא.svg
 מגהפון.svg
+.kiro
+node_modules
+tests__/
+מגהפון.svg
+מגהפון מלא.svg
+UPGRADE_NOTES.md
+CHANGELOG.md
+IMPLEMENTATION_SUMMARY.md
+README.md
+TECHNICAL_DETAILS.md
+TEST_CHECKLIST.md

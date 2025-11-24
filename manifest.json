@@ -1,35 +1,60 @@
 {
   "manifest_version": 3,
   "name": "TheChannel Viewer for Gmail",
-  "version": "1.0.1",
-  "description": "מאפשר צפיה באתרי הערוץ מתוך ג'ימייל",
+  "version": "2.1.0",
+  "description": "מאפשר צפיה באתרי הערוץ מתוך ג'ימייל.",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "storage",
+    "cookies"
+  ],
   "host_permissions": [
     "https://mail.google.com/",
     "https://cdn.jsdelivr.net/",
     "https://thechannel-viewer.clickandgo.cfd/*"
   ],
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "service_worker/background.js",
+    "type": "module"
+  },
   "content_scripts": [
     {
       "matches": ["https://mail.google.com/*"],
-      "css": ["styles.css"],
+      "css": ["styles/gmail.css"],
       "js": [
-        "js/state.js",
-        "js/dom.js",
-        "js/events.js",
-        "js/main.js"
+        "content_scripts/state.js",
+        "content_scripts/storage.js",
+        "content_scripts/dom.js",
+        "content_scripts/events.js",
+        "content_scripts/main.js"
       ]
     },
     {
       "matches": [
-        "https://thechannel-viewer.clickandgo.cfd/*",
-        "http://localhost:4200/*"
+        "https://thechannel-viewer.clickandgo.cfd/*"
       ],
       "js": ["content_scripts/website_bridge.js"],
       "run_at": "document_start"
     }
   ],
-  "icons": {
-    "48": "icons/icon-48.png",
-    "128": "icons/icon-128.png"
+
+  "web_accessible_resources": [
+    {
+      "resources": [ "gmail-selectors.json" ],
+      "matches": [ "https://mail.google.com/*" ]
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "48": "icons/icon-48.png"
+    }
   }
 }
