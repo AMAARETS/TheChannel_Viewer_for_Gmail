@@ -2,30 +2,46 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>אישור התחברות לערוץ</title>
+    <title>אישור התחברות</title>
+    <link rel="icon" type="image/png" href="../icons/icon-48.png">
     <link rel="stylesheet" href="../styles/permission.css">
 </head>
 <body>
-    <div class="container">
+    <div class="card">
         <header>
-            <div class="header-icon">
+            <div class="icon-circle">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                 </svg>
             </div>
-            <h1>אישור התחברות</h1>
+            <h1>בקשת חיבור</h1>
         </header>
 
         <main>
-            <p>האם לאשר לתוסף <strong>TheChannel Viewer For Gmail</strong> לטפל בהתחברות לאתר הבא?</p>
-            <div class="domain-badge" id="domain-display">טוען...</div>
-            <p class="description">אישור זה יאפשר לך להתחבר לאתר זה באמצעות חשבון גוגל ישירות מתוך הפלטפורמה.</p>
+            <p class="subtitle">האם לאפשר צפייה בערוץ הבא?</p>
+            
+            <div class="site-info-container">
+                <div class="site-name" id="site-name-display">טוען...</div>
+                <div class="site-domain" id="site-domain-display">loading...</div>
+            </div>
+
+            <!-- הוספת תיבת הסימון -->
+            <div class="checkbox-container">
+                <label for="approve-all-check" class="checkbox-label disabled">
+                    <input type="checkbox" id="approve-all-check" disabled>
+                    <span class="checkbox-text">אשר גישה לכל הערוצים הרשומים</span>
+                </label>
+            </div>
+
+            <p class="description">
+                אישור זה נדרש פעם אחת בלבד כדי לאפשר התחברות חלקה באמצעות חשבון גוגל.
+            </p>
         </main>
         
-        <div class="actions">
-            <button id="cancel-btn">ביטול</button>
-            <button id="approve-btn" class="primary">אשר וסגור</button>
-        </div>
+        <footer>
+            <button id="cancel-btn" class="btn secondary">ביטול</button>
+            <button id="approve-btn" class="btn primary">אשר חיבור</button>
+        </footer>
     </div>
 
     <script src="permission_request.js"></script>

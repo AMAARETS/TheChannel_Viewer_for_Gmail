@@ -1,56 +1,97 @@
 document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
-    const domain = params.get('domain');
+    const currentDomain = params.get('domain');
+    const name = params.get('name');
     
-    const domainDisplay = document.getElementById('domain-display');
+    const nameDisplay = document.getElementById('site-name-display');
+    const domainDisplay = document.getElementById('site-domain-display');
     const approveBtn = document.getElementById('approve-btn');
     const cancelBtn = document.getElementById('cancel-btn');
+    const checkbox = document.getElementById('approve-all-check');
+    const checkboxLabel = document.querySelector('.checkbox-label');
 
-    if (!domain) {
-        domainDisplay.textContent = 'שגיאה: חסר דומיין';
+    // משתנה לשמירת כל האתרים
+    let allSitesList = [];
+
+    // 1. טעינת רשימת האתרים מה-Background
+    chrome.runtime.sendMessage({ action: 'fetchSites' }, (response) => {
+        if (response && response.success && Array.isArray(response.data) && response.data.length > 0) {
+            allSitesList = response.data;
+            // אפשור ה-Checkbox רק אם יש אתרים ברשימה
+            checkbox.disabled = false;
+            checkboxLabel.classList.remove('disabled');
+        } else {
+            console.log('No sites list available or empty');
+        }
+    });
+
+    if (!currentDomain) {
+        nameDisplay.textContent = 'שגיאה';
+        domainDisplay.textContent = 'חסר דומיין';
         approveBtn.disabled = true;
         return;
     }
 
-    domainDisplay.textContent = domain;
+    // לוגיקת תצוגה
+    if (name && name !== 'undefined' && name !== currentDomain) {
+        nameDisplay.textContent = name;
+        domainDisplay.textContent = currentDomain;
+    } else {
+        nameDisplay.textContent = currentDomain;
+        domainDisplay.style.display = 'none';
+    }
 
-    // לחיצה על "ביטול" פשוט סוגרת את החלון
     cancelBtn.addEventListener('click', () => {
         window.close();
     });
 
-    // לחיצה על "אשר" מבצעת את בקשת ההרשאה
     approveBtn.addEventListener('click', async () => {
-        const origin = `*://${domain}/*`;
-        
+        approveBtn.disabled = true;
+        approveBtn.textContent = 'מבצע...';
+
+        let domainsToApprove = [currentDomain];
+        let originsToRequest = [`*://${currentDomain}/*`];
+
+        // אם המשתמש סימן את התיבה, נוסיף את כל האתרים מהרשימה
+        if (checkbox.checked && allSitesList.length > 0) {
+            const allDomains = allSitesList.map(site => site.domain || site);
+            // איחוד עם הדומיין הנוכחי ומניעת כפילויות
+            domainsToApprove = [...new Set([...allDomains, currentDomain])];
+            originsToRequest = domainsToApprove.map(d => `*://${d}/*`);
+        }
+
         try {
-            // זוהי פעולת משתמש (User Gesture) חוקית
+            // בקשת הרשאה מהדפדפן (עבור דומיין אחד או רבים)
             const granted = await chrome.permissions.request({
-                origins: [origin]
+                origins: originsToRequest
             });
 
             if (granted) {
-                // אם אושר, נבקש מה-background להפעיל את תיקון העוגיות מיידית
+                // שליחת בקשה לתיקון עוגיות עבור כל הדומיינים שאושרו
                 chrome.runtime.sendMessage({
                     action: 'triggerCookieFix',
-                    domains: [domain]
+                    domains: domainsToApprove
                 });
                 
-                // משנים כפתור ויזואלית לזמן קצר ואז סוגרים
-                approveBtn.textContent = 'אושר בהצלחה!';
+                approveBtn.textContent = 'אושר!';
+                approveBtn.classList.add('success');
                 setTimeout(() => {
                     window.close();
                 }, 800);
             } else {
-                // המשתמש סירב בחלון של הדפדפן
+                approveBtn.disabled = false;
                 approveBtn.textContent = 'הבקשה נדחתה';
-                approveBtn.classList.remove('primary');
-                approveBtn.style.backgroundColor = '#ef4444'; // אדום
-                approveBtn.style.borderColor = '#ef4444';
+                approveBtn.classList.add('error');
+                setTimeout(() => {
+                    approveBtn.textContent = 'אשר חיבור';
+                    approveBtn.classList.remove('error');
+                }, 2000);
             }
         } catch (error) {
             console.error(error);
-            domainDisplay.textContent = 'שגיאה: ' + error.message;
+            approveBtn.textContent = 'שגיאה';
+            // הצגת השגיאה בצורה ידידותית יותר אם אפשר, או בקונסול
+            approveBtn.classList.add('error');
         }
     });
 });
