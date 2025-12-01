@@ -12,7 +12,29 @@
     return null;
   }
 
+  // פונקציה שמחפשת אלמנטים דינמיים (שנוצרים ונמחקים) ומסתירה/מציגה אותם
+  // אנו משתמשים בזה עבור סרגלי הכלים כי ג'ימייל מרענן אותם תדיר
+  function toggleDynamicBars(shouldHide) {
+    const selectors = app.state.selectors;
+    if (!selectors) return;
+
+    // חיפוש "חי" של האלמנטים ברגע זה ממש
+    const toolbar = findElement(selectors.gmailToolbar);
+    const filterBar = findElement(selectors.searchFilterBar);
+
+    const action = shouldHide ? 'add' : 'remove';
+
+    if (toolbar) {
+      toolbar.classList[action]('the-channel-active-hide-gmail');
+    }
+    
+    if (filterBar) {
+      filterBar.classList[action]('the-channel-active-hide-gmail');
+    }
+  }
+
   // שולף את כל אלמנטי המפתח מהדף ושומר אותם ב-state
+  // הערה: כאן נשמור רק אלמנטים יציבים שלא נעלמים (כמו התפריט הראשי)
   app.dom.queryElements = function() {
     const els = app.state.elements;
     const selectors = app.state.selectors;
@@ -25,11 +47,6 @@
     els.searchBar = findElement(selectors.searchBar);
     els.navContainer = findElement(selectors.navContainer);
     
-    // --- תוספת: איתור סרגלי הכלים להסתרה ---
-    els.gmailToolbar = findElement(selectors.gmailToolbar);       // סרגל הכלים (מחיקה/ספאם)
-    els.searchFilterBar = findElement(selectors.searchFilterBar); // סרגל הסינון (צ'יפים)
-    // ----------------------------------------
-
     // איתור כפתורי הניווט הראשיים של Gmail
     if (els.navContainer) {
       const buttonContainerSelector = Array.isArray(selectors.buttonContainer) ? selectors.buttonContainer[0] : selectors.buttonContainer;
@@ -126,7 +143,7 @@
     const iframe = document.createElement('iframe');
     iframe.src = 'https://thechannel-viewer.clickandgo.cfd/';
     iframe.style.cssText = 'width:100%; height:100%; border:none;';
-    iframe.allow = 'clipboard-read; clipboard-write';
+    iframe.allow = 'clipboard-read; clipboard-write;';
 
     container.appendChild(iframe);
     app.state.elements.iframeParent.appendChild(container);
@@ -214,10 +231,9 @@
     els.gmailView?.classList.add('the-channel-active-hide-gmail');
     els.searchBar?.classList.add('the-channel-active-hide-gmail');
     
-    // --- תוספת: הסתרת סרגלי הכלים ---
-    els.gmailToolbar?.classList.add('the-channel-active-hide-gmail');
-    els.searchFilterBar?.classList.add('the-channel-active-hide-gmail');
-    // --------------------------------
+    // --- שינוי: חיפוש והסתרה בזמן אמת ---
+    toggleDynamicBars(true); 
+    // ------------------------------------
 
     if (els.iframeContainer) els.iframeContainer.style.display = 'block';
     
@@ -231,10 +247,9 @@
     els.gmailView?.classList.remove('the-channel-active-hide-gmail');
     els.searchBar?.classList.remove('the-channel-active-hide-gmail');
     
-    // --- תוספת: החזרת סרגלי הכלים ---
-    els.gmailToolbar?.classList.remove('the-channel-active-hide-gmail');
-    els.searchFilterBar?.classList.remove('the-channel-active-hide-gmail');
-    // --------------------------------
+    // --- שינוי: חשיפה מחדש בזמן אמת ---
+    toggleDynamicBars(false);
+    // ----------------------------------
 
     window.dispatchEvent(new Event('resize'));
 

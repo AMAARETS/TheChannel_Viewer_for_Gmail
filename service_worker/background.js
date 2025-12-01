@@ -1,7 +1,7 @@
 // קובץ זה הוא ה-Service Worker של התוסף. הוא רץ ברקע ומנהל את הלוגיקה המרכזית.
 
 const SETTINGS_STORAGE_KEY = 'theChannelViewerSettings';
-const SETTINGS_TIMESTAMP_KEY = 'theChannelViewerSettingsTimestamp'; // חדש: מפתח לחותמת זמן
+const SETTINGS_TIMESTAMP_KEY = 'theChannelViewerSettingsTimestamp';
 
 // --- ניהול הגדרות ---
 
@@ -227,6 +227,41 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   
+  // *** חדש: בקשה לפתיחת חלון הרשאות ייעודי ***
+// *** גרסה מתוקנת ועמידה יותר ***
+  if (request.type === 'OPEN_PERMISSION_POPUP' && request.domain) {
+    const width = 420;
+    const height = 400;
+
+    // ניסיון לקבל את החלון הנוכחי כדי למרכז
+    chrome.windows.getLastFocused((currentWindow) => {
+      let left = 100;
+      let top = 100;
+
+      if (currentWindow && currentWindow.width) {
+         left = Math.round((currentWindow.width - width) / 2 + (currentWindow.left || 0));
+         top = Math.round((currentWindow.height - height) / 2 + (currentWindow.top || 0));
+      }
+
+      chrome.windows.create({
+        url: `permission_request/permission_request.html?domain=${encodeURIComponent(request.domain)}`,
+        type: 'popup',
+        width: width,
+        height: height,
+        left: left,
+        top: top,
+        focused: true
+      }, (createdWindow) => {
+          if (chrome.runtime.lastError) {
+              console.error("TheChannel Viewer: Failed to create popup window:", chrome.runtime.lastError);
+          }
+      });
+    });
+
+    sendResponse({ success: true });
+    return true;
+  }
+  
   // --- בקשות מה-popup ---
   if (request.action === 'fetchSites') {
     getSitesWithNames()
@@ -246,4 +281,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
   
   return false;
+});
+
+chrome.permissions.onAdded.addListener((permissions) => {
+  if (permissions.origins && permissions.origins.length > 0) {
+    console.log('TheChannel Viewer: New permissions detected:', permissions.origins);
+    
+    // המרת ה-origins (למשל *://example.com/*) לרשימת דומיינים נקיים
+    const domains = permissions.origins.map(origin => {
+      try {
+        // מנרמל את המבנה כדי להוציא את ה-hostname
+        return new URL(origin.replace('*://', 'https://').replace('/*', '')).hostname;
+      } catch (e) {
+        return null;
+      }
+    }).filter(Boolean); // מסנן ערכים ריקים
+
+    if (domains.length > 0) {
+      console.log('TheChannel Viewer: Automatically triggering cookie fix for new domains:', domains);
+      fixCookiesForDomains(domains);
+    }
+  }
 });

@@ -1,20 +1,21 @@
 // קובץ זה הוא נקודת הכניסה הראשית. הוא אחראי על אתחול התוסף והפעלת הלוגיקה.
 (function(app) {
   
-  const SELECTORS_URL = 'https://cdn.jsdelivr.net/gh/AMAARETS/TheChannel_Viewer_for_Gmail@main/gmail-selectors.json';
+  const SELECTORS_URL = 'https://cdn.jsdelivr.net/gh/AMAARETS/TheChannel_Viewer_for_Gmail@9aba4e9c9cbd3d7257bad8229e9d626e67a8a8ee/gmail-selectors.json';
 
   const MESSAGE_TYPES = {
     APP_READY: 'THE_CHANNEL_APP_READY',
     SETTINGS_CHANGED: 'THE_CHANNEL_SETTINGS_CHANGED',
-    GET_MANAGED_DOMAINS: 'THE_CHANNEL_GET_MANAGED_DOMAINS', // חדש
+    GET_MANAGED_DOMAINS: 'THE_CHANNEL_GET_MANAGED_DOMAINS',
     EXTENSION_READY: 'THE_CHANNEL_EXTENSION_READY',
     SETTINGS_DATA: 'THE_CHANNEL_SETTINGS_DATA',
-    MANAGED_DOMAINS_DATA: 'THE_CHANNEL_MANAGED_DOMAINS_DATA' // חדש
+    MANAGED_DOMAINS_DATA: 'THE_CHANNEL_MANAGED_DOMAINS_DATA'
   };
 
   // פונקציה המטפלת בהעברת הודעות מה-iframe ל-background script
   function handleMessagesFromIframe(event) {
     const iframe = app.state.elements.iframeContainer?.querySelector('iframe');
+    // בדיקת אבטחה: מוודאים שההודעה הגיעה מה-iframe שלנו
     if (!iframe || event.source !== iframe.contentWindow) {
       return;
     }
@@ -28,8 +29,8 @@
           console.error(chrome.runtime.lastError.message);
           return;
         }
-        console.log('TheChannel Extension: Sending settings to app.', response);
-        iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.SETTINGS_DATA, payload: response }, iframe.src);
+        // שליחת תשובה חזרה ל-iframe
+        iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.SETTINGS_DATA, payload: response }, '*');
       });
     }
 
@@ -39,14 +40,12 @@
     }
     
     if (type === MESSAGE_TYPES.GET_MANAGED_DOMAINS) {
-        console.log('TheChannel Extension: App is requesting managed domains list.');
         chrome.runtime.sendMessage({ type: 'GET_MANAGED_DOMAINS'}, (domains) => {
             if (chrome.runtime.lastError) {
                 console.error(chrome.runtime.lastError.message);
                 return;
             }
-            console.log('TheChannel Extension: Sending managed domains to app.', domains);
-            iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.MANAGED_DOMAINS_DATA, payload: domains }, iframe.src);
+            iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.MANAGED_DOMAINS_DATA, payload: domains }, '*');
         });
     }
   }
@@ -66,9 +65,9 @@
     app.events.attachListeners();
     app.events.handleHashChange();
     
+    // החזרנו את ההאזנה ל-postMessage
     window.addEventListener('message', handleMessagesFromIframe);
     
-    // בדיקה והחזרת הסרגל אם נסגר על ידי התוסף לפני רענון
     app.storage.checkAndRestoreSidebar();
     
     app.state.isInitialized = true;
@@ -87,32 +86,20 @@
   }
 
 async function fetchSelectorsAndStart() {
-    // 1. נסה קודם כל למשוך את הסלקטורים המעודכנים מהרשת
     try {
       const response = await fetch(`${SELECTORS_URL}?_=${new Date().getTime()}`, { cache: 'no-cache' });
-      if (!response.ok) {
-        // אם השרת החזיר שגיאה (למשל 404), זרוק שגיאה כדי לעבור לבלוק ה-catch
-        throw new Error(`Network response was not ok, status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Network response was not ok`);
       app.state.selectors = await response.json();
-      console.log('TheChannel Viewer: Successfully fetched remote selectors.', app.state.selectors);
-      waitForGmail(); // המשך אתחול עם הסלקטורים המעודכנים
+      waitForGmail(); 
     } catch (error) {
-      // 2. אם הטעינה מהרשת נכשלה, טען את קובץ הגיבוי המקומי
-      console.warn(`TheChannel Viewer: Failed to fetch remote selectors (${error.message}). Attempting to use local fallback.`);
-      
+      console.warn(`TheChannel Viewer: Failed to fetch remote selectors. Using local.`);
       try {
         const localSelectorsUrl = chrome.runtime.getURL('gmail-selectors.json');
         const response = await fetch(localSelectorsUrl);
-        if (!response.ok) {
-          throw new Error(`Local fallback response was not ok, status: ${response.status}`);
-        }
         app.state.selectors = await response.json();
-        console.log('TheChannel Viewer: Successfully loaded local fallback selectors.');
-        waitForGmail(); // המשך אתחול עם הסלקטורים המקומיים
+        waitForGmail();
       } catch (fallbackError) {
-        // 3. במקרה הלא סביר שגם קובץ הגיבוי נכשל, התוסף לא יכול לעבוד
-        console.error('TheChannel Viewer: CRITICAL - Failed to load even the local selectors. The extension cannot initialize.', fallbackError);
+        console.error('TheChannel Viewer: CRITICAL - Failed to load selectors.', fallbackError);
       }
     }
   }

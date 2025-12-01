@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>אישור התחברות לערוץ</title>
+    <link rel="stylesheet" href="../styles/permission.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            </div>
+            <h1>אישור התחברות</h1>
+        </header>
+
+        <main>
+            <p>האם לאשר לתוסף <strong>TheChannel Viewer For Gmail</strong> לטפל בהתחברות לאתר הבא?</p>
+            <div class="domain-badge" id="domain-display">טוען...</div>
+            <p class="description">אישור זה יאפשר לך להתחבר לאתר זה באמצעות חשבון גוגל ישירות מתוך הפלטפורמה.</p>
+        </main>
+        
+        <div class="actions">
+            <button id="cancel-btn">ביטול</button>
+            <button id="approve-btn" class="primary">אשר וסגור</button>
+        </div>
+    </div>
+
+    <script src="permission_request.js"></script>
+</body>
+</html>

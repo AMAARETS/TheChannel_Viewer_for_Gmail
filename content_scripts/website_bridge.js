@@ -7,13 +7,14 @@
 const MESSAGE_TYPES_FROM_PAGE = {
   APP_READY: 'THE_CHANNEL_APP_READY',
   SETTINGS_CHANGED: 'THE_CHANNEL_SETTINGS_CHANGED',
-  GET_MANAGED_DOMAINS: 'THE_CHANNEL_GET_MANAGED_DOMAINS', // חדש
+  GET_MANAGED_DOMAINS: 'THE_CHANNEL_GET_MANAGED_DOMAINS',
+  REQUEST_PERMISSION: 'THE_CHANNEL_REQUEST_PERMISSION' // *** חדש: בקשת אישור ***
 };
 
 const MESSAGE_TYPES_TO_PAGE = {
   SETTINGS_DATA: 'THE_CHANNEL_SETTINGS_DATA',
   EXTENSION_READY: 'THE_CHANNEL_EXTENSION_READY',
-  MANAGED_DOMAINS_DATA: 'THE_CHANNEL_MANAGED_DOMAINS_DATA', // חדש
+  MANAGED_DOMAINS_DATA: 'THE_CHANNEL_MANAGED_DOMAINS_DATA',
 };
 
 console.log('TheChannel Viewer: Website Bridge loaded.');
@@ -44,11 +45,13 @@ window.addEventListener('THE_CHANNEL_TO_EXTENSION', (event) => {
         detail: { type: MESSAGE_TYPES_TO_PAGE.SETTINGS_DATA, payload: response }
       }));
     });
+
   } else if (type === MESSAGE_TYPES_FROM_PAGE.SETTINGS_CHANGED) {
     // האתר שולח הגדרות מעודכנות לשמירה
     chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', payload: payload });
+
   } else if (type === MESSAGE_TYPES_FROM_PAGE.GET_MANAGED_DOMAINS) {
-    // *** חדש: האתר מבקש את רשימת הדומיינים המנוהלים ***
+    // האתר מבקש את רשימת הדומיינים המנוהלים
     chrome.runtime.sendMessage({ type: 'GET_MANAGED_DOMAINS' }, (domains) => {
       if (chrome.runtime.lastError) {
         console.error(chrome.runtime.lastError.message);
@@ -59,5 +62,15 @@ window.addEventListener('THE_CHANNEL_TO_EXTENSION', (event) => {
         detail: { type: MESSAGE_TYPES_TO_PAGE.MANAGED_DOMAINS_DATA, payload: domains }
       }));
     });
+
+  } else if (type === MESSAGE_TYPES_FROM_PAGE.REQUEST_PERMISSION) {
+    // *** חדש: האתר מבקש לפתוח חלון לאישור דומיין ***
+    // payload אמור להכיל: { domain: 'example.com' }
+    if (payload && payload.domain) {
+      chrome.runtime.sendMessage({ 
+        type: 'OPEN_PERMISSION_POPUP', 
+        domain: payload.domain 
+      });
+    }
   }
 });
