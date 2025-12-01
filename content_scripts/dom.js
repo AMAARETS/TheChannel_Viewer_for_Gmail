@@ -17,17 +17,41 @@
 
     const toolbar = findElement(selectors.gmailToolbar);
     const filterBar = findElement(selectors.searchFilterBar);
-
     const action = shouldHide ? 'add' : 'remove';
 
-    if (toolbar) {
-      toolbar.classList[action]('the-channel-active-hide-gmail');
-    }
-    
-    if (filterBar) {
-      filterBar.classList[action]('the-channel-active-hide-gmail');
-    }
+    if (toolbar) toolbar.classList[action]('the-channel-active-hide-gmail');
+    if (filterBar) filterBar.classList[action]('the-channel-active-hide-gmail');
   }
+
+  // פונקציה להזרקת CSS דינמי שמטפל בהזזת הסרגל המכווץ
+  app.dom.injectDynamicStyles = function() {
+      const selectors = app.state.selectors;
+      if (!selectors || !selectors.gmailSidebarCollapsed) return;
+
+      const styleId = 'the-channel-dynamic-styles';
+      let styleTag = document.getElementById(styleId);
+      
+      if (!styleTag) {
+          styleTag = document.createElement('style');
+          styleTag.id = styleId;
+          document.head.appendChild(styleTag);
+      }
+
+      const collapsedSelector = Array.isArray(selectors.gmailSidebarCollapsed) 
+                                ? selectors.gmailSidebarCollapsed[0] 
+                                : selectors.gmailSidebarCollapsed;
+
+      // --- התיקון כאן ---
+      // הוספנו :not(.the-channel-active-hide-gmail)
+      // זה מבטיח שהמרג'ין יחול רק כשהסרגל גלוי. ברגע שהוא מוסתר (בצפייה בערוץ), המרג'ין מתבטל.
+      const cssRule = `
+        #the-channel-custom-sidebar ~ ${collapsedSelector}:not(.the-channel-active-hide-gmail) { 
+            margin-right: 72px !important; 
+        }
+      `;
+      
+      styleTag.textContent = cssRule;
+  };
 
   app.dom.queryElements = function() {
     const els = app.state.elements;
@@ -35,34 +59,31 @@
     
     if (!selectors) return false;
 
+    // הפעלת הזרקת ה-CSS הדינמי
+    app.dom.injectDynamicStyles();
+
     els.gmailView = findElement(selectors.gmailView);
     els.iframeParent = findElement(selectors.iframeParent);
     els.hamburgerButton = findElement(selectors.hamburgerButton);
     els.searchBar = findElement(selectors.searchBar);
     
-    // איתור סרגל הניווט המקורי
     els.navContainer = findElement(selectors.navContainer);
 
-    // בדיקה אם צריך סרגל מותאם
     if (!els.navContainer) {
        els.sidebarParent = findElement(selectors.sidebarParent);
-       // ניסיון לאתר את סרגל הצד של ג'ימייל (לצורך הסתרה/הזזה)
        els.gmailSidebar = findElement(selectors.gmailSidebar); 
        app.state.isCustomSidebar = !!els.sidebarParent;
     } else {
        app.state.isCustomSidebar = false;
-       els.gmailSidebar = null; // במצב רגיל אנחנו לא צריכים לנהל אותו ידנית
+       els.gmailSidebar = null;
     }
     
     if (els.navContainer) {
       const buttonContainerSelector = Array.isArray(selectors.buttonContainer) ? selectors.buttonContainer[0] : selectors.buttonContainer;
-      
       const mailButtonLabel = els.navContainer.querySelector('div[aria-label^="אימייל"], div[aria-label^="Mail"]');
       els.mailButton = mailButtonLabel ? mailButtonLabel.closest(buttonContainerSelector) : null;
-      
       const chatButtonLabel = findElement(selectors.chatButton);
       els.chatButton = chatButtonLabel ? chatButtonLabel.closest(buttonContainerSelector) : null;
-      
       const meetButtonLabel = findElement(selectors.meetButton);
       els.meetButton = meetButtonLabel ? meetButtonLabel.closest(buttonContainerSelector) : null;
     }
@@ -81,7 +102,6 @@
       sidebar.id = 'the-channel-custom-sidebar';
       sidebar.setAttribute('role', 'navigation');
 
-      // יצירת כפתור Mail
       const mailBtn = document.createElement('div');
       mailBtn.className = 'custom-nav-btn active';
       mailBtn.setAttribute('role', 'link');
@@ -89,10 +109,23 @@
       
       const mailIconContainer = document.createElement('div');
       mailIconContainer.className = 'icon-container';
-      mailIconContainer.innerHTML = `
+      
+      const mailIconFilled = document.createElement('div');
+      mailIconFilled.className = 'custom-icon icon-filled';
+      mailIconFilled.innerHTML = `
         <svg focusable="false" viewBox="0 0 24 24">
             <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"></path>
         </svg>`;
+
+      const mailIconOutline = document.createElement('div');
+      mailIconOutline.className = 'custom-icon icon-outline';
+      mailIconOutline.innerHTML = `
+        <svg focusable="false" viewBox="0 0 24 24">
+            <path d="M22 6C22 4.9 21.1 4 20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6ZM20 6L12 11L4 6H20ZM20 18H4V8L12 13L20 8V18Z"></path>
+        </svg>`;
+      
+      mailIconContainer.appendChild(mailIconFilled);
+      mailIconContainer.appendChild(mailIconOutline);
       
       const mailLabel = document.createElement('div');
       mailLabel.className = 'label';
@@ -103,7 +136,6 @@
       
       els.mailButton = mailBtn;
 
-      // יצירת כפתור TheChannel
       const channelBtn = document.createElement('div');
       channelBtn.id = 'the-channel-button';
       channelBtn.className = 'custom-nav-btn';
@@ -153,7 +185,7 @@
     if (app.state.isCustomSidebar) {
         return this.createCustomSidebar();
     }
-
+    
     const selectors = app.state.selectors;
     const navContainer = app.state.elements.navContainer;
     if (!navContainer) return null;
@@ -177,7 +209,6 @@
     iconPathDefault.setAttribute('transform', 'translate(0, 50) scale(0.1, -0.1)');
     iconPathDefault.setAttribute('fill', 'currentColor');
     iconSvgDefault.appendChild(iconPathDefault);
-    iconContainer.appendChild(iconSvgDefault);
 
     const iconSvgSelected = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     iconSvgSelected.setAttribute('class', 'the-channel-icon the-channel-icon-selected');
@@ -188,6 +219,8 @@
     iconPathSelected.setAttribute('transform', 'translate(0, 50) scale(0.1, -0.1)');
     iconPathSelected.setAttribute('fill', 'currentColor');
     iconSvgSelected.appendChild(iconPathSelected);
+
+    iconContainer.appendChild(iconSvgDefault);
     iconContainer.appendChild(iconSvgSelected);
 
     const label = document.createElement('div');
@@ -211,12 +244,10 @@
     const container = document.createElement('div');
     container.id = 'the-channel-iframe-container';
     container.style.cssText = 'display:none; position:absolute; top:0; left:0; width:100%; height:100%;';
-
     const iframe = document.createElement('iframe');
     iframe.src = 'http://localhost:4200/';
     iframe.style.cssText = 'width:100%; height:100%; border:none;';
     iframe.allow = 'clipboard-read; clipboard-write;';
-
     container.appendChild(iframe);
     app.state.elements.iframeParent.appendChild(container);
     return container;
@@ -297,11 +328,9 @@
   app.dom.showTheChannel = function() {
     const els = app.state.elements;
     
-    // אם אנחנו בסרגל מותאם, נסתיר את סרגל הג'ימייל באמצעות קלאס
     if (app.state.isCustomSidebar && els.gmailSidebar) {
        els.gmailSidebar.classList.add('the-channel-active-hide-gmail');
     } 
-    // אחרת (מצב רגיל), נשתמש בלוגיקה של ההמבורגר
     else if (!app.state.isCustomSidebar && els.hamburgerButton?.getAttribute('aria-expanded') === 'true') {
       app.state.HamburgerClick = false;
       els.hamburgerButton.click();
@@ -312,11 +341,8 @@
 
     els.gmailView?.classList.add('the-channel-active-hide-gmail');
     els.searchBar?.classList.add('the-channel-active-hide-gmail');
-    
     toggleDynamicBars(true); 
-
     if (els.iframeContainer) els.iframeContainer.style.display = 'block';
-    
     this.updateActiveButtonVisuals();
   };
 
@@ -326,16 +352,13 @@
     els.gmailView?.classList.remove('the-channel-active-hide-gmail');
     els.searchBar?.classList.remove('the-channel-active-hide-gmail');
     
-    // חשיפה מחדש של סרגל הג'ימייל במצב מותאם
     if (app.state.isCustomSidebar && els.gmailSidebar) {
         els.gmailSidebar.classList.remove('the-channel-active-hide-gmail');
     }
 
     toggleDynamicBars(false);
-
     window.dispatchEvent(new Event('resize'));
 
-    // שחזור המבורגר רק במצב רגיל
     if (!app.state.isCustomSidebar && app.state.wasSidebarClosedByExtension) {
       setTimeout(() => els.hamburgerButton?.click(), 0);
       app.state.wasSidebarClosedByExtension = false;

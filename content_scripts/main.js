@@ -1,7 +1,7 @@
 // קובץ זה הוא נקודת הכניסה הראשית. הוא אחראי על אתחול התוסף והפעלת הלוגיקה.
 (function(app) {
   
-  const SELECTORS_URL = 'https://cdn.jsdelivr.net/gh/AMAARETS/TheChannel_Viewer_for_Gmail@d3c17e941b3bba04be6f3d69da8d29678b241ca7/gmail-selectors.json';
+  const SELECTORS_URL = 'https://cdn.jsdelivr.net/gh/AMAARETS/TheChannel_Viewer_for_Gmail@98b772bdc0c6b1eb13972694889d34e121608b00/gmail-selectors.json';
 
   const MESSAGE_TYPES = {
     APP_READY: 'THE_CHANNEL_APP_READY',
