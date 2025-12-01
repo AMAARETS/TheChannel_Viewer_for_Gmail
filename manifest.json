@@ -35,8 +35,7 @@
     },
     {
       "matches": [
-        "https://thechannel-viewer.clickandgo.cfd/*",
-        "http://localhost:4200/*"
+        "https://thechannel-viewer.clickandgo.cfd/*"
       ],
       "js": ["content_scripts/website_bridge.js"],
       "run_at": "document_start"

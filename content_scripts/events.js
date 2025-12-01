@@ -50,10 +50,12 @@
   };
 
   app.events.handleHamburgerClick = function(event) {
-    if (window.location.hash.startsWith('#the-channel') && app.state.HamburgerClick) {
+    // אם אנחנו במצב "הערוץ", אנחנו מונעים לחיצה על ההמבורגר כדי למנוע בלבול בממשק,
+    // כיוון שהסרגל מוסתר ויזואלית בכל מקרה.
+    if (window.location.hash.startsWith('#the-channel')) {
       event.preventDefault();
       event.stopPropagation();
-      app.state.elements.hamburgerButton.blur();
+      app.state.elements.hamburgerButton?.blur();
     }
   };
 

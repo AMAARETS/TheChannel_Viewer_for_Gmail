@@ -3,8 +3,6 @@ const TheChannelViewer = {
   state: {
     lastGmailHash: '#inbox',
     lastActiveApp: 'mail',
-    wasSidebarClosedByExtension: false,
-    HamburgerClick: true,
     isInitialized: false,
     isCustomSidebar: false,
     elements: {
@@ -12,7 +10,14 @@ const TheChannelViewer = {
       chatButton: null,
       meetButton: null,
       sidebarParent: null,
-      gmailSidebar: null // רפרנס לסרגל הצד של ג'ימייל (aeN)
+      gmailSidebar: null, // יישמר כאן הרפרנס לסרגל המיילים (לדוגמה .aqn)
+      chatSidebar: null,  // יישמר כאן הרפרנס לסרגל הצ'אט (לדוגמה .aqn)
+      iframeContainer: null,
+      theChannelButton: null,
+      hamburgerButton: null,
+      gmailView: null,
+      searchBar: null,
+      navContainer: null
     },
     selectors: null
   },
