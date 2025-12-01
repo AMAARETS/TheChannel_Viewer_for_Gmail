@@ -6,11 +6,13 @@ const TheChannelViewer = {
     wasSidebarClosedByExtension: false,
     HamburgerClick: true,
     isInitialized: false,
+    isCustomSidebar: false, // דגל חדש לזיהוי אם אנחנו במצב סרגל מותאם אישית
     elements: {
       // נוסיף כאן מקום לכפתורי הניווט
       mailButton: null,
       chatButton: null,
-      meetButton: null
+      meetButton: null,
+      sidebarParent: null // המיכל ההורי החדש
     }, // כאן נשמור רפרנסים לכל אלמנטי ה-DOM שנשתמש בהם
     selectors: null // כאן נשמור את המזהים שייטענו מהשרת
   },

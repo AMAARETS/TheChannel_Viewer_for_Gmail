@@ -5,6 +5,7 @@
   "searchBar": ["form[role='search']"],
   "navContainer": ["div[role='navigation'].a6o"],
   "sidebarParent": [".nH.aqk.aql.bkL"],
+  "gmailSidebar": [".aeN"],
   "chatButton": ["div[aria-label^='Chat']", "div[aria-label^='צ\\'אט']"],
   "meetButton": ["div[aria-label^='Meet']"],
   "buttonContainer": [".Xa"],

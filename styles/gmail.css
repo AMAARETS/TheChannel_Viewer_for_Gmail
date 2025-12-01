@@ -29,7 +29,7 @@
 }
 
 #the-channel-button.acZ .the-channel-icon-container {
-    background-color: #bacbe7;
+    background-color: #c2e7ff;
 }
 
 #the-channel-button .the-channel-icon {
@@ -66,4 +66,89 @@
 #the-channel-button.acZ .the-channel-label {
     color: #001d35;
     font-weight: 700;
+}
+
+/* --- סרגל צד מותאם אישית (כאשר אין סרגל מקורי של ג'ימייל) --- */
+
+#the-channel-custom-sidebar {
+    width: 72px; /* רוחב סטנדרטי של סרגל ג'ימייל סגור */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 8px;
+    background-color: #f6f8fc; /* צבע רקע טיפוסי */
+    height: 100%;
+    border-right: none; /* או גבול עדין אם צריך */
+}
+
+/* עיצוב כפתורים בסרגל המותאם אישית - מחקה את .Xa */
+.custom-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* מיכל האייקון - מחקה את .V6 */
+.custom-nav-btn .icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px; /* רחב יותר כדי למלא את המקום יפה */
+    height: 32px;
+    border-radius: 16px;
+    transition: background-color 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+    margin-bottom: 2px;
+}
+
+.custom-nav-btn:hover .icon-container {
+    background-color: rgba(60, 64, 67, 0.08);
+}
+
+.custom-nav-btn.active .icon-container {
+    background-color: #c2e7ff; /* Google Blue active bg */
+}
+
+/* אייקונים SVG */
+.custom-nav-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: #444746;
+    transition: all 0.15s;
+}
+
+.custom-nav-btn.active svg {
+    fill: #001d35;
+}
+
+/* תווית טקסט - מחקה את .apW */
+.custom-nav-btn .label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #444746;
+    font-family: "Google Sans", Roboto, Arial, sans-serif;
+    margin-top: 2px;
+}
+
+.custom-nav-btn.active .label {
+    color: #001d35;
+    font-weight: 700;
+}
+
+/* התאמות ספציפיות לכפתור TheChannel בתוך הסרגל המותאם */
+#the-channel-custom-sidebar #the-channel-button {
+    /* מאפסים חלק מהעיצוב הקודם כדי שיתאים לסרגל המותאם */
+    width: 100%;
+    padding: 4px 8px;
+}
+#the-channel-custom-sidebar #the-channel-button .the-channel-icon-container {
+    width: 56px;
+    height: 32px;
+    border-radius: 16px;
 }
