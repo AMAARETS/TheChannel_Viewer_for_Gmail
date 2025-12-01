@@ -2,21 +2,21 @@
 const TheChannelViewer = {
   state: {
     lastGmailHash: '#inbox',
-    lastActiveApp: 'mail', // שומר איזו אפליקציה הייתה פעילה לפני המעבר לערוץ (mail/chat/meet)
+    lastActiveApp: 'mail',
     wasSidebarClosedByExtension: false,
     HamburgerClick: true,
     isInitialized: false,
-    isCustomSidebar: false, // דגל חדש לזיהוי אם אנחנו במצב סרגל מותאם אישית
+    isCustomSidebar: false,
     elements: {
-      // נוסיף כאן מקום לכפתורי הניווט
       mailButton: null,
       chatButton: null,
       meetButton: null,
-      sidebarParent: null // המיכל ההורי החדש
-    }, // כאן נשמור רפרנסים לכל אלמנטי ה-DOM שנשתמש בהם
-    selectors: null // כאן נשמור את המזהים שייטענו מהשרת
+      sidebarParent: null,
+      gmailSidebar: null // רפרנס לסרגל הצד של ג'ימייל (aeN)
+    },
+    selectors: null
   },
   dom: {},
   events: {},
-  storage: {} // פונקציות לניהול אחסון
+  storage: {}
 };
