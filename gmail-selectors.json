@@ -4,6 +4,7 @@
   "hamburgerButton": [".gb_1c"],
   "searchBar": ["form[role='search']"],
   "navContainer": ["div[role='navigation'].a6o"],
+  "sidebarParent": [".nH.aqk.aql.bkL"],
   "chatButton": ["div[aria-label^='Chat']", "div[aria-label^='צ\\'אט']"],
   "meetButton": ["div[aria-label^='Meet']"],
   "buttonContainer": [".Xa"],
