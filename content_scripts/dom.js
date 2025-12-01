@@ -25,6 +25,11 @@
     els.searchBar = findElement(selectors.searchBar);
     els.navContainer = findElement(selectors.navContainer);
     
+    // --- תוספת: איתור סרגלי הכלים להסתרה ---
+    els.gmailToolbar = findElement(selectors.gmailToolbar);       // סרגל הכלים (מחיקה/ספאם)
+    els.searchFilterBar = findElement(selectors.searchFilterBar); // סרגל הסינון (צ'יפים)
+    // ----------------------------------------
+
     // איתור כפתורי הניווט הראשיים של Gmail
     if (els.navContainer) {
       const buttonContainerSelector = Array.isArray(selectors.buttonContainer) ? selectors.buttonContainer[0] : selectors.buttonContainer;
@@ -121,7 +126,7 @@
     const iframe = document.createElement('iframe');
     iframe.src = 'https://thechannel-viewer.clickandgo.cfd/';
     iframe.style.cssText = 'width:100%; height:100%; border:none;';
-    iframe.allow = 'clipboard-read; clipboard-write; fullscreen';
+    iframe.allow = 'clipboard-read; clipboard-write';
 
     container.appendChild(iframe);
     app.state.elements.iframeParent.appendChild(container);
@@ -208,6 +213,12 @@
 
     els.gmailView?.classList.add('the-channel-active-hide-gmail');
     els.searchBar?.classList.add('the-channel-active-hide-gmail');
+    
+    // --- תוספת: הסתרת סרגלי הכלים ---
+    els.gmailToolbar?.classList.add('the-channel-active-hide-gmail');
+    els.searchFilterBar?.classList.add('the-channel-active-hide-gmail');
+    // --------------------------------
+
     if (els.iframeContainer) els.iframeContainer.style.display = 'block';
     
     this.updateActiveButtonVisuals();
@@ -219,6 +230,11 @@
     if (els.iframeContainer) els.iframeContainer.style.display = 'none';
     els.gmailView?.classList.remove('the-channel-active-hide-gmail');
     els.searchBar?.classList.remove('the-channel-active-hide-gmail');
+    
+    // --- תוספת: החזרת סרגלי הכלים ---
+    els.gmailToolbar?.classList.remove('the-channel-active-hide-gmail');
+    els.searchFilterBar?.classList.remove('the-channel-active-hide-gmail');
+    // --------------------------------
 
     window.dispatchEvent(new Event('resize'));
 

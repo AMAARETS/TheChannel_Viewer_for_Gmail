@@ -95,7 +95,7 @@ async function fetchSelectorsAndStart() {
         throw new Error(`Network response was not ok, status: ${response.status}`);
       }
       app.state.selectors = await response.json();
-      console.log('TheChannel Viewer: Successfully fetched remote selectors.');
+      console.log('TheChannel Viewer: Successfully fetched remote selectors.', app.state.selectors);
       waitForGmail(); // המשך אתחול עם הסלקטורים המעודכנים
     } catch (error) {
       // 2. אם הטעינה מהרשת נכשלה, טען את קובץ הגיבוי המקומי

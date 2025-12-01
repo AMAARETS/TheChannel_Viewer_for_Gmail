@@ -12,9 +12,7 @@
     "cookies"
   ],
   "host_permissions": [
-    "https://mail.google.com/",
-    "https://cdn.jsdelivr.net/",
-    "https://thechannel-viewer.clickandgo.cfd/*"
+    "https://mail.google.com/"
   ],
   "optional_host_permissions": [
     "*://*/*"
@@ -37,7 +35,8 @@
     },
     {
       "matches": [
-        "https://thechannel-viewer.clickandgo.cfd/*"
+        "https://thechannel-viewer.clickandgo.cfd/*",
+        "http://localhost:4200/*"
       ],
       "js": ["content_scripts/website_bridge.js"],
       "run_at": "document_start"
