@@ -1,5 +1,8 @@
 // קובץ זה הוא ה-Service Worker של התוסף. הוא רץ ברקע ומנהל את הלוגיקה המרכזית.
 
+// --- ייבוא מודולים ---
+import './injection_manager.js'; // טוען את לוגיקת ההזרקה
+
 const SETTINGS_STORAGE_KEY = 'theChannelViewerSettings';
 const SETTINGS_TIMESTAMP_KEY = 'theChannelViewerSettingsTimestamp';
 
@@ -35,28 +38,6 @@ async function saveSettings(settings, timestamp) {
   } catch (error) {
     console.error('TheChannel Viewer: Error saving settings to sync storage.', error);
   }
-}
-
-async function getSitesDomains() {
-  const { settings } = await getSettingsWithTimestamp();
-  if (!settings.categories || !Array.isArray(settings.categories)) {
-    return [];
-  }
-
-  const urls = settings.categories.reduce((acc, category) => {
-    if (category && Array.isArray(category.sites)) {
-      category.sites.forEach(site => {
-        if (site && typeof site.url === 'string') {
-          acc.push(site.url);
-        }
-      });
-    }
-    return acc;
-  }, []);
-
-  return [...new Set(urls.map(url => {
-    try { return new URL(url).hostname; } catch { return null; }
-  }).filter(Boolean))];
 }
 
 async function getSitesWithNames() {
@@ -117,14 +98,11 @@ async function fixCookie(cookie) {
   if (cookie.domain.includes('google.com') || cookie.name.startsWith('__Host-') || cookie.name.startsWith('__Secure-')) {
     return;
   }
-  if (cookie.domain === 'localhost' || cookie.domain === '127.0.0.1') {
-    return;
-  }
   if (cookie.sameSite === 'no_restriction') {
     return;
   }
 
-  console.log(`TheChannel Viewer: Fixing cookie "${cookie.name}" for domain ${cookie.domain}.`);
+  // console.log(`TheChannel Viewer: Fixing cookie "${cookie.name}" for domain ${cookie.domain}.`);
   const url = `https://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
   try {
     await chrome.cookies.remove({ url: url, name: cookie.name });
@@ -139,9 +117,9 @@ async function fixCookie(cookie) {
       sameSite: 'no_restriction',
       secure: true
     });
-    console.log(`TheChannel Viewer: Cookie "${cookie.name}" was successfully replaced.`);
+    // console.log(`TheChannel Viewer: Cookie "${cookie.name}" was successfully replaced.`);
   } catch (error) {
-    console.error(`TheChannel Viewer: Failed to modify cookie "${cookie.name}". Error:`, error.message);
+    // console.error(`TheChannel Viewer: Failed to modify cookie "${cookie.name}". Error:`, error.message);
   }
 }
 
@@ -195,12 +173,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // *** עדכון: פתיחת פופאפ מעוצב, גדול יותר, ועם שם האתר ***
   if (request.type === 'OPEN_PERMISSION_POPUP' && request.domain) {
     const width = 420;
-    const height = 480; // הגדלנו את הגובה
+    const height = 480;
 
-    // ניסיון לקבל את החלון הנוכחי כדי למרכז
     chrome.windows.getLastFocused((currentWindow) => {
       let left = 100;
       let top = 100;
@@ -210,7 +186,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         top = Math.round((currentWindow.height - height) / 2 + (currentWindow.top || 0));
       }
 
-      const siteName = request.name || request.domain; // קבלת השם אם קיים
+      const siteName = request.name || request.domain;
 
       chrome.windows.create({
         url: `permission_request/permission_request.html?domain=${encodeURIComponent(request.domain)}&name=${encodeURIComponent(siteName)}`,
@@ -252,9 +228,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return false;
 });
 
-chrome.permissions.onAdded.addListener((permissions) => {
+// מאזין לשינויי הרשאות (רק עבור תיקון העוגיות - ההזרקה מטופלת ב-injection_manager)
+chrome.permissions.onAdded.addListener(async (permissions) => {
   if (permissions.origins && permissions.origins.length > 0) {
-    console.log('TheChannel Viewer: New permissions detected:', permissions.origins);
+    console.log('TheChannel Viewer: New permissions detected (Background):', permissions.origins);
 
     const domains = permissions.origins.map(origin => {
       try {
