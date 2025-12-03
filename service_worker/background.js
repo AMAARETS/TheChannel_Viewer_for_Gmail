@@ -117,6 +117,9 @@ async function fixCookie(cookie) {
   if (cookie.domain.includes('google.com') || cookie.name.startsWith('__Host-') || cookie.name.startsWith('__Secure-')) {
     return;
   }
+  if (cookie.domain === 'localhost' || cookie.domain === '127.0.0.1') {
+    return;
+  }
   if (cookie.sameSite === 'no_restriction') {
     return;
   }
