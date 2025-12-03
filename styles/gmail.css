@@ -169,3 +169,209 @@
 .the-channel-active-hide-gmail + * {
     margin-right: 0 !important;
 }
+.the-channel-active-hide-gmail {
+    display: none !important;
+}
+
+/* עיצוב כפתור TheChannel */
+#the-channel-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding: 4px 8px;
+}
+
+#the-channel-button .the-channel-icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 28px;
+    border-radius: 22px;
+    transition: background-color 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+    margin-bottom: 2px;
+}
+
+#the-channel-button:not(.acZ):hover .the-channel-icon-container {
+    background-color: rgba(60, 64, 67, 0.08);
+}
+
+#the-channel-button.acZ .the-channel-icon-container {
+    background-color: #c2e7ff;
+}
+
+#the-channel-button .the-channel-icon {
+    width: 20px;
+    height: 20px;
+    fill: #5f6368;
+    transition: all 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+#the-channel-button.acZ .the-channel-icon {
+    fill: #001d35;
+}
+
+#the-channel-button .the-channel-icon-selected {
+    display: none;
+}
+
+#the-channel-button.acZ .the-channel-icon-default {
+    display: none;
+}
+
+#the-channel-button.acZ .the-channel-icon-selected {
+    display: block;
+}
+
+#the-channel-button .the-channel-label {
+    font-size: .75rem;
+    font-weight: 500;
+    color: #5f6368;
+    transition: color 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+    white-space: nowrap;
+}
+
+#the-channel-button.acZ .the-channel-label {
+    color: #001d35;
+    font-weight: 700;
+}
+
+#the-channel-custom-sidebar {
+    width: 72px;
+    min-width: 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 8px;
+    background-color: #f6f8fc;
+    
+    /* גובה מלא תמיד */
+    height: 100%;
+    min-height: 100vh; /* ליתר ביטחון */
+    box-sizing: border-box;
+    
+    z-index: 100;
+}
+
+.custom-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.custom-nav-btn .icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 32px;
+    border-radius: 16px;
+    transition: background-color 0.15s cubic-bezier(0.4, 0.0, 0.2, 1);
+    margin-bottom: 2px;
+}
+
+.custom-nav-btn:hover .icon-container {
+    background-color: rgba(60, 64, 67, 0.08);
+}
+
+.custom-nav-btn.active .icon-container {
+    background-color: #c2e7ff;
+}
+
+.custom-nav-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: #444746;
+    transition: all 0.15s;
+}
+
+/* לוגיקה להחלפת אייקונים עבור כפתור המייל המותאם */
+.custom-nav-btn .icon-filled {
+    display: none;
+}
+.custom-nav-btn .icon-outline {
+    display: block;
+}
+
+/* כאשר פעיל: הצג מלא, הסתר קו מתאר */
+.custom-nav-btn.active .icon-filled {
+    display: block;
+}
+.custom-nav-btn.active .icon-outline {
+    display: none;
+}
+.custom-nav-btn.active svg {
+    fill: #001d35;
+}
+
+/* תווית טקסט */
+.custom-nav-btn .label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #444746;
+    font-family: "Google Sans", Roboto, Arial, sans-serif;
+    margin-top: 2px;
+}
+
+.custom-nav-btn.active .label {
+    color: #001d35;
+    font-weight: 700;
+}
+
+#the-channel-custom-sidebar #the-channel-button {
+    width: 100%;
+    padding: 4px 8px;
+}
+#the-channel-custom-sidebar #the-channel-button .the-channel-icon-container {
+    width: 56px;
+    height: 32px;
+    border-radius: 16px;
+}
+.the-channel-active-hide-gmail + * {
+    margin-right: 0 !important;
+}
+
+/* --- Loader Styles --- */
+#the-channel-loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.the-channel-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #1a73e8; /* Google Blue */
+    border-radius: 50%;
+    animation: the-channel-spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+.the-channel-loading-text {
+    font-family: 'Google Sans', Roboto, Arial, sans-serif;
+    font-size: 14px;
+    color: #5f6368;
+    font-weight: 500;
+}
+
+@keyframes the-channel-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

@@ -259,10 +259,22 @@
     const container = document.createElement('div');
     container.id = 'the-channel-iframe-container';
     container.style.cssText = 'display:none; position:absolute; top:0; left:0; width:100%; height:100%;';
+    
+    // יצירת אלמנט Loader
+    const loader = document.createElement('div');
+    loader.id = 'the-channel-loader';
+    loader.innerHTML = `
+      <div class="the-channel-spinner"></div>
+      <div class="the-channel-loading-text">טוען את הערוץ...</div>
+    `;
+    container.appendChild(loader);
+
     const iframe = document.createElement('iframe');
-    iframe.src = 'https://thechannel-viewer.clickandgo.cfd/';
-    iframe.style.cssText = 'width:100%; height:100%; border:none;';
+    // לא מגדירים src מיד, שומרים אותו לשימוש מאוחר יותר
+    iframe.dataset.src = 'https://thechannel-viewer.clickandgo.cfd/';
+    iframe.style.cssText = 'width:100%; height:100%; border:none; display:none;'; // מוסתר בהתחלה
     iframe.allow = 'clipboard-read; clipboard-write; fullscreen;';
+    
     container.appendChild(iframe);
     app.state.elements.iframeParent.appendChild(container);
     return container;
@@ -365,8 +377,26 @@
     // הסתרת פסי כלים עליונים אם צריך
     toggleDynamicBars(true); 
     
-    // הצגת הערוץ
-    if (els.iframeContainer) els.iframeContainer.style.display = 'block';
+    // הצגת הערוץ (קונטיינר)
+    if (els.iframeContainer) {
+        els.iframeContainer.style.display = 'block';
+        
+        // --- לוגיקת טעינה עצלה (Lazy Loading) ---
+        const iframe = els.iframeContainer.querySelector('iframe');
+        const loader = els.iframeContainer.querySelector('#the-channel-loader');
+        
+        // אם אין src (כלומר טרם נטען), טוענים כעת
+        if (iframe && !iframe.getAttribute('src')) {
+            // טעינת ה-SRC
+            iframe.src = iframe.dataset.src;
+            
+            // האזנה לסיום הטעינה
+            iframe.onload = function() {
+                if (loader) loader.style.display = 'none';
+                iframe.style.display = 'block';
+            };
+        }
+    }
     
     this.updateActiveButtonVisuals();
   };
