@@ -327,6 +327,41 @@
     }
   };
   
+  // פונקציה שכופה הסתרה ואז הצגה מחדש של הסרגל כתצוגה קבועה
+  app.dom.forceResetSidebar = function() {
+    if (app.state.isCustomSidebar) return;
+    
+    const selectors = app.state.selectors;
+    const activeClass = Array.isArray(selectors.activeNavButton2) ? selectors.activeNavButton2[0] : selectors.activeNavButton2;
+    
+    // זיהוי מחדש של הסרגלים
+    const closestSidebarSelector = Array.isArray(selectors.closestSidebar) ? selectors.closestSidebar[0] : selectors.closestSidebar;
+    const gmailSidebar = findElement(selectors.gmailSidebarContainer)?.closest(closestSidebarSelector);
+    const chatSidebar = findElement(selectors.chatSidebarContainer)?.closest(closestSidebarSelector);
+    
+    // שלב 1: כפיית הסתרה של כל הסרגלים (ניקוי מצב הריחוף)
+    if (gmailSidebar) {
+      gmailSidebar.classList.remove(activeClass, 'aJu', 'aJt');
+    }
+    if (chatSidebar) {
+      chatSidebar.classList.remove(activeClass, 'aJu', 'aJt');
+    }
+    
+    // שלב 2: המתנה קצרה ואז הצגה מחדש של הסרגל הרלוונטי
+    setTimeout(() => {
+      if (window.location.hash.startsWith('#chat')) {
+        if (chatSidebar) {
+          chatSidebar.classList.add(activeClass);
+        }
+      } else {
+        // ברירת מחדל - Mail
+        if (gmailSidebar) {
+          gmailSidebar.classList.add(activeClass);
+        }
+      }
+    }, 10);
+  };
+
   app.dom.updateComposeButtonVisibility = function() {
       // אם אנחנו בסרגל מותאם אישית, אין מה להסתיר כי הסרגל שלנו מכסה הכל
       if (app.state.isCustomSidebar) return;
@@ -342,33 +377,43 @@
       // לוגיקה זו מונעת משני הסרגלים להיות מוצגים יחד במעבר בין אפליקציות גוגל
       if (window.location.hash.startsWith('#calls')) {
         if (gmailSidebar && chatSidebar) {
-          gmailSidebar.classList.remove(activeClass);
-          chatSidebar.classList.remove(activeClass);
+          //gmailSidebar.classList.remove(activeClass);
+          //chatSidebar.classList.remove(activeClass);
         }
       } else if (window.location.hash.startsWith('#chat')) {
-        if (gmailSidebar){
-          gmailSidebar.classList.remove(activeClass);
+        if (chatSidebar){
+          //gmailSidebar.classList.remove(activeClass);
+          chatSidebar.classList.add(activeClass);
+          console.log('נוסף צאט')
         }
       } else {
         // ברירת מחדל (Mail)
-        if(chatSidebar){
-          chatSidebar.classList.remove(activeClass);
+        if(gmailSidebar){
+          //chatSidebar.classList.remove(activeClass);
+          gmailSidebar.classList.remove('aJu');
+          gmailSidebar.classList.add(activeClass);
+          console.log('נוסף גימייל')
         }
       }
   };
 
   app.dom.showTheChannel = function() {
     const els = app.state.elements;
+    const selectors = app.state.selectors;
     
+    // הסתרת סרגלי הצד ע"י הסרת הקלאס הפעיל (במקום הסתרה בכוח), 
+    // כך שריחוף יחזיר אותם (ויפעיל את ה-CSS שהזרקנו כדי שיצופו).
+    const activeClass = Array.isArray(selectors.activeNavButton2) ? selectors.activeNavButton2[0] : selectors.activeNavButton2;
+
+    els.gmailSidebar?.classList.remove(activeClass);
+    els.chatSidebar?.classList.remove(activeClass);
+
+
     // הסתרת סרגלי הצד הספציפיים (Gmail ו-Chat) באמצעות הוספת Class
     // משתמשים באלמנטים שזוהו ב-queryElements (שהשתמשו באותה לוגיקה)
-    if (els.gmailSidebar) {
-       els.gmailSidebar.classList.add('the-channel-active-hide-gmail');
-    }
-    
-    if (els.chatSidebar) {
-       els.chatSidebar.classList.add('the-channel-active-hide-gmail');
-    }
+
+    els.gmailSidebar?.classList.add('Sidebar-absolute');    
+    els.chatSidebar?.classList.add('Sidebar-absolute');
 
     // הסתרת התוכן המרכזי של ג'ימייל
     els.gmailView?.classList.add('the-channel-active-hide-gmail');
@@ -406,8 +451,10 @@
     
     // הסתרת הערוץ
     if (els.iframeContainer) els.iframeContainer.style.display = 'none';
-    
-    // החזרת התצוגה של ג'ימייל
+
+    els.gmailSidebar?.classList.remove('Sidebar-absolute');    
+    els.chatSidebar?.classList.remove('Sidebar-absolute');
+
     els.gmailView?.classList.remove('the-channel-active-hide-gmail');
     els.searchBar?.classList.remove('the-channel-active-hide-gmail');
     
@@ -421,10 +468,13 @@
     }
 
     toggleDynamicBars(false);
-    window.dispatchEvent(new Event('resize'));
     
-    // כאן updateComposeButtonVisibility ייקרא מיד אחרי דרך events.js -> handleHashChange
-    // כדי להבטיח שרק הסרגל הנכון (מייל או צ'אט) יוצג לפי ה-Hash
+    // תיקון: כפיית איפוס הסרגל מריחוף לתצוגה קבועה
+    setTimeout(() => {
+      this.forceResetSidebar();
+    }, 50);
+    
+    window.dispatchEvent(new Event('resize'));
     
     this.updateActiveButtonVisuals();
   };
