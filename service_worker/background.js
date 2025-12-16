@@ -1,6 +1,7 @@
 // --- ייבוא מודולים ---
-import './injection_manager.js'; // טוען את לוגיקת ההזרקה
-import { initBadgeManager, getUnreadDomains } from './badge_manager.js'; // טוען את מנהל ההתראות
+import './injection_manager.js';
+// ייבוא הפונקציה החדשה handleDirectUpdate
+import { initBadgeManager, getUnreadDomains, handleDirectUpdate } from './badge_manager.js';
 
 const SETTINGS_STORAGE_KEY = 'theChannelViewerSettings';
 const SETTINGS_TIMESTAMP_KEY = 'theChannelViewerSettingsTimestamp';
@@ -8,7 +9,8 @@ const SETTINGS_TIMESTAMP_KEY = 'theChannelViewerSettingsTimestamp';
 // --- אתחול מנהל ההתראות (Badge) ---
 initBadgeManager();
 
-// --- ניהול הגדרות ---
+// ... (שאר הפונקציות ללא שינוי: getSettingsWithTimestamp, saveSettings, וכו') ...
+// יש להעתיק את כל הפונקציות הקיימות בקובץ המקורי עד ל-chrome.runtime.onMessage.addListener
 
 async function getSettingsWithTimestamp() {
   try {
@@ -47,9 +49,7 @@ async function getSitesWithNames() {
   if (!settings.categories || !Array.isArray(settings.categories)) {
     return [];
   }
-
   const sitesMap = new Map();
-
   settings.categories.forEach(category => {
     if (category && Array.isArray(category.sites)) {
       category.sites.forEach(site => {
@@ -62,14 +62,11 @@ async function getSitesWithNames() {
                 domain: domain
               });
             }
-          } catch {
-            // ignore invalid URLs
-          }
+          } catch { }
         }
       });
     }
   });
-
   return Array.from(sitesMap.values());
 }
 
@@ -93,9 +90,6 @@ async function getManagedDomains() {
   }
 }
 
-
-// --- לוגיקת שינוי העוגיות ---
-
 async function fixCookie(cookie) {
   if (cookie.domain.includes('google.com') || cookie.name.startsWith('__Host-') || cookie.name.startsWith('__Secure-')) {
     return;
@@ -103,7 +97,6 @@ async function fixCookie(cookie) {
   if (cookie.sameSite === 'no_restriction') {
     return;
   }
-
   const url = `https://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
   try {
     await chrome.cookies.remove({ url: url, name: cookie.name });
@@ -118,8 +111,7 @@ async function fixCookie(cookie) {
       sameSite: 'no_restriction',
       secure: true
     });
-  } catch (error) {
-  }
+  } catch (error) { }
 }
 
 async function handleCookieChange(changeInfo) {
@@ -150,9 +142,17 @@ async function fixCookiesForDomains(domains) {
 
 chrome.cookies.onChanged.addListener(handleCookieChange);
 
-// --- מאזין להודעות מה-content script ומה-popup ---
+// --- מאזין להודעות ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  // --- בקשות מה-content script ---
+  // --- טיפול בהודעה החדשה (מסלול מהיר) ---
+  if (request.type === 'DIRECT_SYNC_UPDATE') {
+      if (request.domain && request.payload) {
+          handleDirectUpdate(request.domain, request.payload);
+      }
+      return false; // לא מחזיר תשובה אסינכרונית
+  }
+
+  // --- שאר ההודעות הקיימות ---
   if (request.type === 'GET_SETTINGS') {
     getSettingsWithTimestamp().then(sendResponse);
     return true;
@@ -172,7 +172,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   
-  // הוספת הטיפול בבקשת סטטוס לא נקרא
   if (request.type === 'GET_UNREAD_STATUS') {
     getUnreadDomains().then(sendResponse);
     return true;
@@ -212,7 +211,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // --- בקשות מה-popup ---
   if (request.action === 'fetchSites') {
     getSitesWithNames()
       .then(sites => sendResponse({ success: true, data: sites }))
@@ -233,7 +231,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return false;
 });
 
-// מאזין לשינויי הרשאות
 chrome.permissions.onAdded.addListener(async (permissions) => {
   if (permissions.origins && permissions.origins.length > 0) {
     const domains = permissions.origins.map(origin => {

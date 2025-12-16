@@ -1,6 +1,6 @@
 const API_ENDPOINT = '/api/messages?offset=0&limit=0';
-const UNREAD_STATUS_KEY = 'theChannel_unsupported_domains_session'; // מפתח לשמירה בסשן
-const PERSISTENT_UNREAD_KEY = 'theChannel_unread_status_cache'; // מפתח לשמירה בדיסק
+const UNREAD_STATUS_KEY = 'theChannel_unsupported_domains_session'; 
+const PERSISTENT_UNREAD_KEY = 'theChannel_unread_status_cache'; 
 const ALARM_NAME = 'check_unread_messages_alarm';
 const CHECK_INTERVAL_MINUTES = 1;
 
@@ -8,7 +8,6 @@ const EXCLUDED_DOMAINS = [
     'mail.google.com', 'www.google.com', 'accounts.google.com', 'contacts.google.com', 'keep.google.com'
 ];
 
-// --- In-Memory State (למהירות מקסימלית בזמן ריצה) ---
 let unsupportedDomainsCache = new Set();
 let currentUnreadSet = new Set(); 
 let lastReadIdsCache = {}; 
@@ -16,24 +15,19 @@ let lastReadIdsCache = {};
 let isCacheLoaded = false;
 let isFullCheckInProgress = false;
 
-// --- טעינת נתונים ---
+// --- Load Cache ---
 async function loadCache() {
     try {
-        // 1. טעינת הסטטוס הקבוע מהדיסק (Local)
         const localResult = await chrome.storage.local.get([PERSISTENT_UNREAD_KEY]);
         const unreadList = localResult[PERSISTENT_UNREAD_KEY] || [];
         currentUnreadSet = new Set(unreadList);
 
-        // 2. טעינת רשימת הלא-נתמכים מה-SESSION (זה התיקון!)
-        // זה ישרוד נפילות של ה-Service Worker אבל יימחק בסגירת כרום
         const sessionResult = await chrome.storage.session.get([UNREAD_STATUS_KEY]);
         const unsupportedList = sessionResult[UNREAD_STATUS_KEY] || [];
         unsupportedDomainsCache = new Set(unsupportedList);
 
-        // 3. טעינת מידע מסונכרן
         const syncResult = await chrome.storage.sync.get(null);
         lastReadIdsCache = {};
-        
         Object.keys(syncResult).forEach(key => {
             if (key.startsWith('sync_data_')) {
                 const domain = key.replace('sync_data_', '');
@@ -42,7 +36,6 @@ async function loadCache() {
                 }
             }
         });
-
         isCacheLoaded = true;
     } catch (e) {
         console.error('Badge Manager: Error loading cache', e);
@@ -52,23 +45,31 @@ async function loadCache() {
 
 async function markDomainAsUnsupported(domain) {
     if (unsupportedDomainsCache.has(domain)) return;
-    
-    console.log(`Badge Manager: Marking ${domain} as unsupported (Session).`);
-    
-    // עדכון הזיכרון המיידי
     unsupportedDomainsCache.add(domain);
-    
-    // עדכון ה-Session Storage (כדי שישרוד אם ה-SW מת)
-    await chrome.storage.session.set({ 
-        [UNREAD_STATUS_KEY]: Array.from(unsupportedDomainsCache) 
-    });
+    await chrome.storage.session.set({ [UNREAD_STATUS_KEY]: Array.from(unsupportedDomainsCache) });
 }
 
 function getLastReadIdFromCache(domain) {
     return lastReadIdsCache[domain] || 0;
 }
 
-// --- פונקציית בדיקת רשת ---
+// --- פונקציה חדשה לעדכון ישיר מהיר ---
+export async function handleDirectUpdate(domain, payload) {
+    if (!isCacheLoaded) await loadCache();
+    
+    if (payload && payload.lastReadMessage) {
+        const newMessageId = parseInt(payload.lastReadMessage);
+        const currentId = lastReadIdsCache[domain] || 0;
+        
+        // עדכון רק אם המספר החדש גדול יותר
+        if (newMessageId > currentId) {
+            lastReadIdsCache[domain] = newMessageId;
+            // הפעלת בדיקה מיידית עבור הדומיין הזה בלבד
+            checkUnreadMessages([domain]);
+        }
+    }
+}
+
 async function fetchLatestMessageId(domain) {
     const url = `https://${domain}${API_ENDPOINT}`;
     try {
@@ -80,7 +81,6 @@ async function fetchLatestMessageId(domain) {
             signal: controller.signal,
             cache: 'no-store'
         });
-        
         clearTimeout(timeoutId);
 
         if (response.status === 404 || (response.headers.get('content-type') || '').includes('text/html')) {
@@ -89,7 +89,6 @@ async function fetchLatestMessageId(domain) {
         }
 
         if (!response.ok) return null;
-
         let json;
         try { json = await response.json(); } catch (e) { return null; }
 
@@ -107,12 +106,9 @@ async function fetchLatestMessageId(domain) {
     }
 }
 
-// --- עדכון תצוגה ---
 async function broadcastUnreadDomains() {
     const unreadList = Array.from(currentUnreadSet);
     const message = { type: 'UNREAD_STATUS_UPDATE', payload: unreadList };
-
-    // שומרים את הסטטוס בדיסק כדי שיוצג מיד בפתיחה הבאה
     chrome.storage.local.set({ [PERSISTENT_UNREAD_KEY]: unreadList });
 
     if (unreadList.length > 0) {
@@ -137,23 +133,20 @@ async function checkSingleDomainStatus(domain) {
     return remoteId > localId;
 }
 
-// --- הפונקציה הראשית ---
 async function checkUnreadMessages(specificDomains = null) {
     if (!isCacheLoaded) await loadCache();
 
-    // נתיב מהיר
     if (specificDomains && Array.isArray(specificDomains) && specificDomains.length > 0) {
         await Promise.all(specificDomains.map(async (domain) => {
             if (unsupportedDomainsCache.has(domain)) return;
             const isUnread = await checkSingleDomainStatus(domain);
             if (isUnread) currentUnreadSet.add(domain);
-            else currentUnreadSet.delete(domain);
+            else currentUnreadSet.delete(domain); // אם קראנו, זה מסיר את ההתראה מייד
         }));
         broadcastUnreadDomains();
         return;
     }
 
-    // נתיב איטי (בדיקה מלאה)
     if (isFullCheckInProgress) return;
     isFullCheckInProgress = true;
 
@@ -212,6 +205,7 @@ export function initBadgeManager() {
         if (alarm.name === ALARM_NAME) checkUnreadMessages();
     });
     
+    // מאזין לשינויים ב-Storage Sync (מסלול איטי/מכשירים אחרים)
     chrome.storage.onChanged.addListener((changes, areaName) => {
         if (areaName === 'sync') {
             const changedDomains = [];
@@ -220,9 +214,13 @@ export function initBadgeManager() {
                     const domain = key.replace('sync_data_', '');
                     const newValue = changes[key].newValue;
                     if (newValue && newValue.lastReadMessage) {
-                        lastReadIdsCache[domain] = parseInt(newValue.lastReadMessage);
+                        const newId = parseInt(newValue.lastReadMessage);
+                        // עדכון ה-Cache רק אם הוא חדש יותר (למניעת דריסה ע"י מידע ישן מהענן)
+                        if (newId > (lastReadIdsCache[domain] || 0)) {
+                            lastReadIdsCache[domain] = newId;
+                            changedDomains.push(domain);
+                        }
                     }
-                    changedDomains.push(domain);
                 }
             });
             if (changedDomains.length > 0) {
