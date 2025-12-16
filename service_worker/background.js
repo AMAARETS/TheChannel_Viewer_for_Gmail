@@ -1,10 +1,12 @@
-// קובץ זה הוא ה-Service Worker של התוסף. הוא רץ ברקע ומנהל את הלוגיקה המרכזית.
-
 // --- ייבוא מודולים ---
 import './injection_manager.js'; // טוען את לוגיקת ההזרקה
+import { initBadgeManager, getUnreadDomains } from './badge_manager.js'; // טוען את מנהל ההתראות
 
 const SETTINGS_STORAGE_KEY = 'theChannelViewerSettings';
 const SETTINGS_TIMESTAMP_KEY = 'theChannelViewerSettingsTimestamp';
+
+// --- אתחול מנהל ההתראות (Badge) ---
+initBadgeManager();
 
 // --- ניהול הגדרות ---
 
@@ -102,7 +104,6 @@ async function fixCookie(cookie) {
     return;
   }
 
-  // console.log(`TheChannel Viewer: Fixing cookie "${cookie.name}" for domain ${cookie.domain}.`);
   const url = `https://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
   try {
     await chrome.cookies.remove({ url: url, name: cookie.name });
@@ -117,9 +118,7 @@ async function fixCookie(cookie) {
       sameSite: 'no_restriction',
       secure: true
     });
-    // console.log(`TheChannel Viewer: Cookie "${cookie.name}" was successfully replaced.`);
   } catch (error) {
-    // console.error(`TheChannel Viewer: Failed to modify cookie "${cookie.name}". Error:`, error.message);
   }
 }
 
@@ -170,6 +169,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.type === 'GET_MANAGED_DOMAINS') {
     getManagedDomains().then(sendResponse);
+    return true;
+  }
+  
+  // הוספת הטיפול בבקשת סטטוס לא נקרא
+  if (request.type === 'GET_UNREAD_STATUS') {
+    getUnreadDomains().then(sendResponse);
     return true;
   }
 
@@ -228,11 +233,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return false;
 });
 
-// מאזין לשינויי הרשאות (רק עבור תיקון העוגיות - ההזרקה מטופלת ב-injection_manager)
+// מאזין לשינויי הרשאות
 chrome.permissions.onAdded.addListener(async (permissions) => {
   if (permissions.origins && permissions.origins.length > 0) {
-    console.log('TheChannel Viewer: New permissions detected (Background):', permissions.origins);
-
     const domains = permissions.origins.map(origin => {
       try {
         return new URL(origin.replace('*://', 'https://').replace('/*', '')).hostname;
@@ -242,7 +245,6 @@ chrome.permissions.onAdded.addListener(async (permissions) => {
     }).filter(Boolean);
 
     if (domains.length > 0) {
-      console.log('TheChannel Viewer: Automatically triggering cookie fix for new domains:', domains);
       fixCookiesForDomains(domains);
     }
   }

@@ -7,11 +7,13 @@
     APP_READY: 'THE_CHANNEL_APP_READY',
     SETTINGS_CHANGED: 'THE_CHANNEL_SETTINGS_CHANGED',
     GET_MANAGED_DOMAINS: 'THE_CHANNEL_GET_MANAGED_DOMAINS',
-    // 1. הוספת סוג ההודעה החסר
     REQUEST_PERMISSION: 'THE_CHANNEL_REQUEST_PERMISSION', 
     EXTENSION_READY: 'THE_CHANNEL_EXTENSION_READY',
     SETTINGS_DATA: 'THE_CHANNEL_SETTINGS_DATA',
-    MANAGED_DOMAINS_DATA: 'THE_CHANNEL_MANAGED_DOMAINS_DATA'
+    MANAGED_DOMAINS_DATA: 'THE_CHANNEL_MANAGED_DOMAINS_DATA',
+    GET_UNREAD_STATUS: 'THE_CHANNEL_GET_UNREAD_STATUS',
+    UNREAD_STATUS_DATA: 'THE_CHANNEL_UNREAD_STATUS_DATA',
+    UNREAD_STATUS_UPDATE: 'THE_CHANNEL_UNREAD_STATUS_UPDATE'
   };
 
   // פונקציה המטפלת בהעברת הודעות מה-iframe ל-background script
@@ -43,15 +45,19 @@
     
     if (type === MESSAGE_TYPES.GET_MANAGED_DOMAINS) {
         chrome.runtime.sendMessage({ type: 'GET_MANAGED_DOMAINS'}, (domains) => {
-            if (chrome.runtime.lastError) {
-                console.error(chrome.runtime.lastError.message);
-                return;
-            }
+            if (chrome.runtime.lastError) return;
             iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.MANAGED_DOMAINS_DATA, payload: domains }, '*');
         });
     }
 
-    // 2. הוספת הטיפול בבקשת ההרשאה
+    // בקשת סטטוס לא נקרא
+    if (type === MESSAGE_TYPES.GET_UNREAD_STATUS) {
+        chrome.runtime.sendMessage({ type: 'GET_UNREAD_STATUS' }, (unreadDomains) => {
+            if (chrome.runtime.lastError) return;
+            iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.UNREAD_STATUS_DATA, payload: unreadDomains }, '*');
+        });
+    }
+
     if (type === MESSAGE_TYPES.REQUEST_PERMISSION) {
         console.log('TheChannel Extension: Received permission request from iframe.', payload);
         if (payload && payload.domain) {
@@ -62,6 +68,19 @@
             });
         }
     }
+  }
+
+  // פונקציה המאזינה להודעות מה-Background ומעבירה ל-Iframe
+  function handleMessagesFromBackground(message, sender, sendResponse) {
+      if (message.type === 'UNREAD_STATUS_UPDATE') {
+          const iframe = app.state.elements.iframeContainer?.querySelector('iframe');
+          if (iframe && iframe.contentWindow) {
+              iframe.contentWindow.postMessage({
+                  type: MESSAGE_TYPES.UNREAD_STATUS_UPDATE,
+                  payload: message.payload
+              }, '*');
+          }
+      }
   }
 
   function init() {
@@ -79,8 +98,11 @@
     app.events.attachListeners();
     app.events.handleHashChange();
     
-    // החזרנו את ההאזנה ל-postMessage
+    // האזנה ל-postMessage מה-Iframe
     window.addEventListener('message', handleMessagesFromIframe);
+    
+    // האזנה להודעות מה-Background (Push updates)
+    chrome.runtime.onMessage.addListener(handleMessagesFromBackground);
     
     app.storage.checkAndRestoreSidebar();
     

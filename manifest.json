@@ -11,7 +11,8 @@
     "storage",
     "cookies",
     "scripting",
-    "webNavigation"
+    "webNavigation",
+    "alarms"
   ],
   "host_permissions": [
     "https://mail.google.com/"
