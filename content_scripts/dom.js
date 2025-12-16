@@ -160,6 +160,12 @@
       const channelIconContainer = document.createElement('div');
       channelIconContainer.className = 'the-channel-icon-container';
 
+      // --- יצירת ה-Badge ---
+      const badge = document.createElement('div');
+      badge.className = 'the-channel-badge';
+      channelIconContainer.appendChild(badge);
+      // --------------------
+
       const iconSvgDefault = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       iconSvgDefault.setAttribute('class', 'the-channel-icon the-channel-icon-default');
       iconSvgDefault.setAttribute('viewBox', '0 0 50 50');
@@ -214,6 +220,12 @@
 
     const iconContainer = document.createElement('div');
     iconContainer.className = 'the-channel-icon-container';
+
+    // --- יצירת ה-Badge ---
+    const badge = document.createElement('div');
+    badge.className = 'the-channel-badge';
+    iconContainer.appendChild(badge);
+    // --------------------
 
     const iconSvgDefault = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     iconSvgDefault.setAttribute('class', 'the-channel-icon the-channel-icon-default');
@@ -278,6 +290,24 @@
     container.appendChild(iframe);
     app.state.elements.iframeParent.appendChild(container);
     return container;
+  };
+
+  // --- פונקציה לעדכון ה-Badge ---
+  app.dom.updateUnreadBadge = function(count) {
+    const theChannelButton = app.state.elements.theChannelButton;
+    if (!theChannelButton) return;
+
+    const badge = theChannelButton.querySelector('.the-channel-badge');
+    if (!badge) return;
+
+    if (count && count > 0) {
+        // הצג אם יש הודעות
+        badge.textContent = count > 99 ? '99+' : count.toString();
+        badge.classList.add('visible');
+    } else {
+        // הסתר אם אין
+        badge.classList.remove('visible');
+    }
   };
 
   app.dom.updateActiveButtonVisuals = function() {

@@ -50,11 +50,17 @@
         });
     }
 
-    // בקשת סטטוס לא נקרא
+    // בקשת סטטוס לא נקרא (מה-Iframe)
     if (type === MESSAGE_TYPES.GET_UNREAD_STATUS) {
         chrome.runtime.sendMessage({ type: 'GET_UNREAD_STATUS' }, (unreadDomains) => {
             if (chrome.runtime.lastError) return;
+            // שליחה ל-Iframe
             iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.UNREAD_STATUS_DATA, payload: unreadDomains }, '*');
+            
+            // עדכון הכפתור בממשק ג'ימייל גם כאן (סינכרון ראשוני)
+            if (Array.isArray(unreadDomains)) {
+                app.dom.updateUnreadBadge(unreadDomains.length);
+            }
         });
     }
 
@@ -73,11 +79,19 @@
   // פונקציה המאזינה להודעות מה-Background ומעבירה ל-Iframe
   function handleMessagesFromBackground(message, sender, sendResponse) {
       if (message.type === 'UNREAD_STATUS_UPDATE') {
+          const payload = message.payload;
+          
+          // 1. עדכון ה-Badge בכפתור ג'ימייל
+          if (Array.isArray(payload)) {
+              app.dom.updateUnreadBadge(payload.length);
+          }
+
+          // 2. העברה ל-Iframe
           const iframe = app.state.elements.iframeContainer?.querySelector('iframe');
           if (iframe && iframe.contentWindow) {
               iframe.contentWindow.postMessage({
                   type: MESSAGE_TYPES.UNREAD_STATUS_UPDATE,
-                  payload: message.payload
+                  payload: payload
               }, '*');
           }
       }
@@ -103,6 +117,13 @@
     
     // האזנה להודעות מה-Background (Push updates)
     chrome.runtime.onMessage.addListener(handleMessagesFromBackground);
+
+    // ביצוע בדיקת סטטוס ראשונית עבור הכפתור בג'ימייל (לפני שה-Iframe בכלל נטען)
+    chrome.runtime.sendMessage({ type: 'GET_UNREAD_STATUS' }, (unreadDomains) => {
+        if (!chrome.runtime.lastError && Array.isArray(unreadDomains)) {
+            app.dom.updateUnreadBadge(unreadDomains.length);
+        }
+    });
     
     app.storage.checkAndRestoreSidebar();
     
