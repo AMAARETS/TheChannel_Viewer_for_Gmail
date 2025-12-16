@@ -15,6 +15,10 @@
     --box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
     --box-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Notification Status Colors */
+    --muted-color: #94a3b8;
+    --active-notification-color: #f59e0b;
 }
 
 * {
@@ -177,10 +181,11 @@ header p {
 .site-item {
     display: flex;
     align-items: center;
-    padding: 12px 16px;
+    justify-content: space-between;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--border-color);
     transition: var(--transition);
-    cursor: pointer;
+    cursor: default;
     position: relative;
     animation: fadeInSlide 0.4s ease-out backwards;
     max-width: 100%;
@@ -206,18 +211,24 @@ header p {
     background-color: var(--hover-bg);
 }
 
-.site-item:active {
-    background-color: var(--hover-bg);
-}
-
-.site-item label {
+/* Wrapper for checkbox and label to align left */
+.checkbox-wrapper {
     display: flex;
     align-items: center;
+    flex-grow: 1;
+    min-width: 0;
     cursor: pointer;
+    padding: 4px 0;
+}
+
+.checkbox-wrapper label {
+    display: flex;
+    align-items: center;
     width: 100%;
     font-size: 14px;
     min-width: 0;
     overflow: hidden;
+    cursor: pointer;
 }
 
 .site-item input[type="checkbox"] {
@@ -228,6 +239,7 @@ header p {
     cursor: pointer;
     transition: var(--transition);
     border-radius: 4px;
+    flex-shrink: 0;
 }
 
 .site-item input[type="checkbox"]:hover {
@@ -253,7 +265,7 @@ header p {
     text-overflow: ellipsis;
 }
 
-.site-item:hover .site-name {
+.checkbox-wrapper:hover .site-name {
     color: var(--primary-color);
 }
 
@@ -272,33 +284,43 @@ header p {
     font-weight: 700;
 }
 
-.site-item input[type="checkbox"]:checked ~ label {
-    position: relative;
+/* Notification Bell Button */
+.notification-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color-secondary);
+    transition: all 0.2s;
+    margin-right: 8px;
+    flex-shrink: 0;
 }
 
-.site-item input[type="checkbox"]:checked ~ label::before {
-    content: '';
-    position: absolute;
-    right: -8px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 3px;
-    height: 60%;
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
-    border-radius: 2px;
-    animation: slideIn 0.3s ease-out;
+.notification-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
-@keyframes slideIn {
-    from {
-        height: 0;
-        opacity: 0;
-    }
-    to {
-        height: 60%;
-        opacity: 1;
-    }
+.notification-toggle.active {
+    color: var(--active-notification-color);
 }
+
+.notification-toggle.muted {
+    color: var(--muted-color);
+    opacity: 0.6;
+}
+
+.notification-toggle.hidden {
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    padding: 0;
+    margin: 0;
+}
+
 .select-all-container {
     background: linear-gradient(135deg, var(--primary-color-light) 0%, #e0f2fe 100%);
     font-weight: 600;
@@ -307,6 +329,13 @@ header p {
     z-index: 1;
     border-bottom: 2px solid var(--primary-color);
     transition: var(--transition);
+    padding: 12px 16px;
+}
+
+.select-all-container label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
 }
 
 .select-all-container:hover {
@@ -317,6 +346,7 @@ header p {
 .select-all-container label span {
     color: var(--primary-color);
     font-size: 14px;
+    margin-right: 8px;
 }
 
 .empty-state {
@@ -340,9 +370,10 @@ header p {
 .actions {
     display: flex;
     gap: 8px;
+    animation: slideUpFade 0.5s ease-out 0.2s backwards;
 }
 
-button {
+button:not(.notification-toggle) {
     flex-grow: 1;
     padding: 12px 20px;
     border: 2px solid var(--border-color);
@@ -360,7 +391,7 @@ button {
     overflow: hidden;
 }
 
-button::before {
+button:not(.notification-toggle)::before {
     content: '';
     position: absolute;
     top: 50%;
@@ -373,19 +404,19 @@ button::before {
     transition: width 0.6s, height 0.6s;
 }
 
-button:hover::before {
+button:not(.notification-toggle):hover::before {
     width: 300px;
     height: 300px;
 }
 
-button:hover:not(:disabled) {
+button:not(.notification-toggle):hover:not(:disabled) {
     background-color: var(--hover-bg);
     border-color: var(--primary-color);
     transform: translateY(-2px);
     box-shadow: var(--box-shadow);
 }
 
-button:active:not(:disabled) {
+button:not(.notification-toggle):active:not(:disabled) {
     transform: translateY(0);
 }
 
@@ -492,8 +523,8 @@ button.primary::before {
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     border: 2px solid #60a5fa;
 }
-/* Ri
-pple Effect */
+
+/* Ripple Effect */
 .ripple {
     position: absolute;
     border-radius: 50%;
@@ -508,35 +539,6 @@ pple Effect */
         transform: scale(4);
         opacity: 0;
     }
-}
-
-/* Checkbox Animation */
-.site-item input[type="checkbox"] {
-    position: relative;
-}
-
-.site-item input[type="checkbox"]::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0);
-    width: 100%;
-    height: 100%;
-    border-radius: 4px;
-    background: var(--primary-color);
-    opacity: 0.2;
-    transition: var(--transition);
-}
-
-.site-item input[type="checkbox"]:checked::before {
-    transform: translate(-50%, -50%) scale(1.5);
-    opacity: 0;
-}
-
-/* Actions Container Animation */
-.actions {
-    animation: slideUpFade 0.5s ease-out 0.2s backwards;
 }
 
 @keyframes slideUpFade {
