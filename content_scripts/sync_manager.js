@@ -1,7 +1,8 @@
 /**
  * sync_manager.js
- * מנהל סנכרון חכם ואגרסיבי.
- * כולל "מסלול מהיר" (Fast Path) לעדכון מיידי של ה-Badge.
+ * מנהל סנכרון רזה ומהיר.
+ * מתמקד אך ורק בסנכרון ה-ID של ההודעה האחרונה שנקראה (lastReadMessage).
+ * הוסר הטיפול בהיסטוריית שרשורים (thread_read_status) למניעת עומס וחריגת מכסות.
  */
 
 (function() {
@@ -13,17 +14,14 @@
     const EXT_STORAGE_KEY = STORAGE_KEY_PREFIX + DOMAIN;
     
     const KEY_LAST_READ_MSG = 'lastReadMessage';
-    const KEY_THREAD_STATUS = 'thread_read_status'; 
 
     let pollingIntervalId = null;
     let isContextInvalidated = false;
     let syncDebounceTimer = null;
     let isSyncInProgress = false;
 
-    let lastKnownSiteState = {
-        [KEY_LAST_READ_MSG]: localStorage.getItem(KEY_LAST_READ_MSG),
-        [KEY_THREAD_STATUS]: localStorage.getItem(KEY_THREAD_STATUS)
-    };
+    // מעקב אחר המצב האחרון הידוע כדי למנוע לולאות
+    let lastKnownLastRead = localStorage.getItem(KEY_LAST_READ_MSG);
 
     let isInternalUpdate = false; 
 
@@ -36,10 +34,10 @@
     }
 
     // --- מסלול מהיר: עדכון ישיר ל-Background ---
+    // חיוני לעדכון מיידי של ה-Badge בג'ימייל
     function sendFastUpdate(lastReadMsg) {
         if (isContextInvalidated || !chrome.runtime?.id) return;
         try {
-            // שליחה ישירה ללא המתנה ל-Storage Sync
             chrome.runtime.sendMessage({
                 type: 'DIRECT_SYNC_UPDATE',
                 domain: DOMAIN,
@@ -52,151 +50,105 @@
         }
     }
 
-    function mergeThreadStatuses(localArr, remoteArr, preferSource) {
-        if (!Array.isArray(localArr)) localArr = [];
-        if (!Array.isArray(remoteArr)) remoteArr = [];
-        const map = new Map();
-
-        remoteArr.forEach(item => { if (item?.messageId) map.set(item.messageId, { ...item }); });
-
-        localArr.forEach(localItem => {
-            if (!localItem?.messageId) return;
-            const remoteItem = map.get(localItem.messageId);
-            if (!remoteItem) {
-                map.set(localItem.messageId, { ...localItem });
-            } else {
-                const localTs = localItem.lastReadTimestamp || 0;
-                const remoteTs = remoteItem.lastReadTimestamp || 0;
-                const mergedCount = Math.max(localItem.lastReadCount || 0, remoteItem.lastReadCount || 0);
-                const mergedTimestamp = Math.max(localTs, remoteTs);
-                let mergedIsFollowing;
-
-                if (localTs > remoteTs) mergedIsFollowing = localItem.isFollowing;
-                else if (remoteTs > localTs) mergedIsFollowing = remoteItem.isFollowing;
-                else mergedIsFollowing = (preferSource === 'local') ? localItem.isFollowing : remoteItem.isFollowing;
-
-                map.set(localItem.messageId, {
-                    messageId: localItem.messageId,
-                    lastReadCount: mergedCount,
-                    lastReadTimestamp: mergedTimestamp,
-                    isFollowing: mergedIsFollowing
-                });
-            }
-        });
-        return Array.from(map.values());
-    }
-
+    // פונקציה לעדכון ה-localStorage באתר מתוך המידע שהגיע מהענן (מכשיר אחר)
     function updateSiteFromExtension(extData) {
         if (isInternalUpdate || isContextInvalidated) return;
         try {
             const extLastRead = extData[KEY_LAST_READ_MSG] || 0;
-            const extThreadStatus = extData[KEY_THREAD_STATUS] || [];
             const localLastReadStr = localStorage.getItem(KEY_LAST_READ_MSG);
-            const localThreadStatusStr = localStorage.getItem(KEY_THREAD_STATUS);
             const localLastRead = parseInt(localLastReadStr || '0');
-            let localThreadStatus = [];
-            try { localThreadStatus = localThreadStatusStr ? JSON.parse(localThreadStatusStr) : []; } catch(e){}
 
+            // אנחנו תמיד לוקחים את המקסימום (ההודעה החדשה יותר)
             const mergedLastRead = Math.max(localLastRead, extLastRead);
-            const mergedThreadStatus = mergeThreadStatuses(localThreadStatus, extThreadStatus, 'remote');
-            const mergedThreadStatusStr = JSON.stringify(mergedThreadStatus);
 
-            let updated = false;
-            isInternalUpdate = true;
-
+            // אם המידע מהענן חדש יותר ממה שיש באתר, נעדכן את האתר
             if (mergedLastRead > localLastRead) {
+                isInternalUpdate = true;
                 localStorage.setItem(KEY_LAST_READ_MSG, mergedLastRead);
-                lastKnownSiteState[KEY_LAST_READ_MSG] = mergedLastRead.toString();
-                updated = true;
+                lastKnownLastRead = mergedLastRead.toString();
+                isInternalUpdate = false;
             }
-            if (mergedThreadStatusStr !== localThreadStatusStr) {
-                localStorage.setItem(KEY_THREAD_STATUS, mergedThreadStatusStr);
-                lastKnownSiteState[KEY_THREAD_STATUS] = mergedThreadStatusStr;
-                updated = true;
-            }
-            isInternalUpdate = false;
         } catch (e) {
             isInternalUpdate = false;
         }
     }
 
+    // פונקציה לשמירת המצב המקומי לענן (Chrome Sync)
     async function syncToExtension() {
         if (isInternalUpdate || isContextInvalidated || isSyncInProgress) return;
         
         const currentLastReadStr = localStorage.getItem(KEY_LAST_READ_MSG);
-        const currentThreadStatusStr = localStorage.getItem(KEY_THREAD_STATUS);
         
-        // 1. קריאה למסלול המהיר מייד בתחילת הפונקציה!
+        // 1. קריאה למסלול המהיר מייד!
         sendFastUpdate(currentLastReadStr);
 
         isSyncInProgress = true;
 
         try {
             const localLastRead = parseInt(currentLastReadStr || '0');
-            let localThreadStatus = [];
-            try { localThreadStatus = currentThreadStatusStr ? JSON.parse(currentThreadStatusStr) : []; } catch (e) {}
 
             if (!chrome.runtime?.id) throw new Error('Extension context invalidated');
 
+            // משיכת המידע הקיים בענן
             const extDataWrapper = await chrome.storage.sync.get(EXT_STORAGE_KEY);
             const extData = extDataWrapper[EXT_STORAGE_KEY] || {};
             
             const extLastRead = extData[KEY_LAST_READ_MSG] || 0;
-            const extThreadStatus = extData[KEY_THREAD_STATUS] || [];
 
-            const mergedLastRead = Math.max(localLastRead, extLastRead);
-            const mergedThreadStatus = mergeThreadStatuses(localThreadStatus, extThreadStatus, 'local');
-            
-            const isDifferent = 
-                (mergedLastRead > extLastRead) || 
-                (JSON.stringify(mergedThreadStatus) !== JSON.stringify(extThreadStatus));
-
-            if (isDifferent) {
+            // בדיקה אם למשתמש המקומי יש מידע חדש יותר
+            if (localLastRead > extLastRead) {
+                // שמירה בענן - שומרים אובייקט קטן ונקי
                 await chrome.storage.sync.set({
                     [EXT_STORAGE_KEY]: {
-                        [KEY_LAST_READ_MSG]: mergedLastRead,
-                        [KEY_THREAD_STATUS]: mergedThreadStatus,
+                        [KEY_LAST_READ_MSG]: localLastRead,
                         lastSync: Date.now()
                     }
                 });
+            } else if (extLastRead > localLastRead) {
+                // מקרה נדיר: גילינו תוך כדי ניסיון שמירה שיש בענן מידע חדש יותר
+                updateSiteFromExtension(extData);
             }
 
-            lastKnownSiteState[KEY_LAST_READ_MSG] = currentLastReadStr;
-            lastKnownSiteState[KEY_THREAD_STATUS] = currentThreadStatusStr;
+            lastKnownLastRead = currentLastReadStr;
 
         } catch (e) {
-            if (e.message.includes('Extension context invalidated')) handleContextInvalidated();
-            else console.error('Sync Error', e);
+            if (e.message && e.message.includes('Extension context invalidated')) {
+                handleContextInvalidated();
+            } else {
+                console.error('Sync Error', e);
+            }
         } finally {
             isSyncInProgress = false;
         }
     }
 
+    // דריסת setItem כדי לזהות שינויים בזמן אמת באתר
     const originalSetItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function(key, value) {
         originalSetItem.call(this, key, value);
-        if (!isContextInvalidated && !isInternalUpdate && this === localStorage && (key === KEY_LAST_READ_MSG || key === KEY_THREAD_STATUS)) {
+        
+        if (!isContextInvalidated && !isInternalUpdate && this === localStorage && key === KEY_LAST_READ_MSG) {
             
-            // שיפור: שליחה מיידית של עדכון מהיר עוד לפני ה-Debounce אם זה רק עדכון הודעה אחרונה
-            if (key === KEY_LAST_READ_MSG) {
-                sendFastUpdate(value);
-            }
+            // שליחה מיידית של עדכון מהיר
+            sendFastUpdate(value);
 
+            // תזמון סנכרון מלא לענן (Debounce)
             if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
             syncDebounceTimer = setTimeout(syncToExtension, 200);
         }
     };
 
+    // מנגנון גיבוי (Polling) למקרה שפספסנו אירוע
     pollingIntervalId = setInterval(() => {
         if (isInternalUpdate || isContextInvalidated || isSyncInProgress) return;
         const currentLastRead = localStorage.getItem(KEY_LAST_READ_MSG);
-        const currentThreadStatus = localStorage.getItem(KEY_THREAD_STATUS);
-        if (currentLastRead !== lastKnownSiteState[KEY_LAST_READ_MSG] || 
-            currentThreadStatus !== lastKnownSiteState[KEY_THREAD_STATUS]) {
+        
+        if (currentLastRead !== lastKnownLastRead) {
             syncToExtension(); 
         }
     }, 1000);
 
+    // האזנה לשינויים שמגיעים ממכשירים אחרים (דרך Chrome Storage)
     try {
         chrome.storage.onChanged.addListener((changes, areaName) => {
             if (isContextInvalidated) return;
@@ -207,6 +159,7 @@
         });
     } catch (e) { handleContextInvalidated(); }
 
+    // אתחול ראשוני
     try {
         setTimeout(() => {
             chrome.storage.sync.get(EXT_STORAGE_KEY, (data) => {
@@ -217,5 +170,5 @@
         }, 500);
     } catch (e) { handleContextInvalidated(); }
 
-    console.log(`TheChannel Sync Manager: Fast-Path active on ${DOMAIN}`);
+    console.log(`TheChannel Sync Manager: Lite mode active on ${DOMAIN}`);
 })();

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TheChannel Viewer for Gmail",
-  "version": "2.4.0",
+  "version": "3.0.0",
   "description": "מאפשר צפיה באתרי הערוץ מתוך ג'ימייל.",
   "icons": {
     "48": "icons/icon-48.png",
