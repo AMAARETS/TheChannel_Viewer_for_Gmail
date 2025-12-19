@@ -12,13 +12,17 @@ initBadgeManager();
 async function getSettingsWithTimestamp() {
   try {
     const data = await chrome.storage.sync.get([SETTINGS_STORAGE_KEY, SETTINGS_TIMESTAMP_KEY]);
+    // משיכת הגרסה מהמניפסט
+    const version = chrome.runtime.getManifest().version;
+    
     return {
       settings: data[SETTINGS_STORAGE_KEY] || {},
-      lastModified: data[SETTINGS_TIMESTAMP_KEY] || null
+      lastModified: data[SETTINGS_TIMESTAMP_KEY] || null,
+      extensionVersion: version // הוספת הגרסה כאן
     };
   } catch (error) {
-    console.error('TheChannel Viewer: Error getting settings from sync storage.', error);
-    return { settings: {}, lastModified: null };
+    console.error('TheChannel Viewer: Error getting settings...', error);
+    return { settings: {}, lastModified: null, extensionVersion: null };
   }
 }
 

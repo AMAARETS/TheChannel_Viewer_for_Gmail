@@ -27,9 +27,13 @@ console.log('TheChannel Viewer: Website Bridge loaded.');
 // 1. הכרז על נוכחות התוסף
 window.theChannelExtensionActive = true;
 
-// 2. שלח אירוע שהתוסף מוכן
+const extensionVersion = chrome.runtime.getManifest().version;
+
 window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
-  detail: { type: MESSAGE_TYPES_TO_PAGE.EXTENSION_READY }
+  detail: { 
+    type: MESSAGE_TYPES_TO_PAGE.EXTENSION_READY,
+    payload: { version: extensionVersion } // הוספת הגרסה לדיטיילס
+  }
 }));
 
 function sendMessageToBackground(message, callback) {
