@@ -12,13 +12,12 @@ initBadgeManager();
 async function getSettingsWithTimestamp() {
   try {
     const data = await chrome.storage.sync.get([SETTINGS_STORAGE_KEY, SETTINGS_TIMESTAMP_KEY]);
-    // משיכת הגרסה מהמניפסט
     const version = chrome.runtime.getManifest().version;
     
     return {
       settings: data[SETTINGS_STORAGE_KEY] || {},
       lastModified: data[SETTINGS_TIMESTAMP_KEY] || null,
-      extensionVersion: version // הוספת הגרסה כאן
+      extensionVersion: version
     };
   } catch (error) {
     console.error('TheChannel Viewer: Error getting settings...', error);
@@ -31,18 +30,42 @@ async function saveSettings(settings, timestamp) {
     const currentData = await chrome.storage.sync.get(SETTINGS_TIMESTAMP_KEY);
     const currentTimestamp = currentData[SETTINGS_TIMESTAMP_KEY] || 0;
 
+    // שמירה רק אם המידע הנכנס חדש יותר מהקיים בענן
     if (timestamp > currentTimestamp) {
       await chrome.storage.sync.set({
         [SETTINGS_STORAGE_KEY]: settings,
         [SETTINGS_TIMESTAMP_KEY]: timestamp
       });
-      console.log('TheChannel Viewer: Settings saved to sync storage with new timestamp.');
-    } else {
-      console.log('TheChannel Viewer: Received settings are outdated, not saving.');
+      console.log('TheChannel Viewer: Settings saved to sync storage.');
     }
   } catch (error) {
     console.error('TheChannel Viewer: Error saving settings to sync storage.', error);
   }
+}
+
+async function broadcastSettingsUpdate(settings, timestamp) {
+  const version = chrome.runtime.getManifest().version;
+  const message = {
+    type: 'SETTINGS_DATA_UPDATE',
+    payload: {
+      settings: settings,
+      lastModified: timestamp,
+      extensionVersion: version
+    }
+  };
+
+  try {
+    const tabs = await chrome.tabs.query({ 
+      url: [
+        "*://thechannel-viewer.clickandgo.cfd/*", 
+        "*://mail.google.com/*",
+        "*://localhost/*" 
+      ] 
+    });
+    for (const tab of tabs) {
+      if (tab.id) chrome.tabs.sendMessage(tab.id, message).catch(() => {});
+    }
+  } catch (e) {}
 }
 
 async function getSitesWithNames() {
@@ -91,7 +114,6 @@ async function getManagedDomains() {
   }
 }
 
-// --- פונקציות עזר להשתקה ---
 async function getMutedDomains() {
     try {
         const result = await chrome.storage.sync.get([MUTED_DOMAINS_KEY]);
@@ -116,10 +138,7 @@ async function toggleMuteDomain(domain) {
 
         const newList = Array.from(mutedSet);
         await chrome.storage.sync.set({ [MUTED_DOMAINS_KEY]: newList });
-        
-        // שידור הודעה לטאבים שהרשימה עודכנה
         broadcastMutedDomainsUpdate(newList);
-        
         return newList;
     } catch (e) {
         console.error('Error toggling mute:', e);
@@ -129,7 +148,6 @@ async function toggleMuteDomain(domain) {
 
 async function broadcastMutedDomainsUpdate(newList) {
     try {
-        // *** תיקון: הוספת localhost לרשימת הכתובות המקבלות עדכון ***
         const tabs = await chrome.tabs.query({ 
             url: [
                 "*://thechannel-viewer.clickandgo.cfd/*", 
@@ -137,7 +155,6 @@ async function broadcastMutedDomainsUpdate(newList) {
                 "*://localhost/*" 
             ] 
         });
-        
         for (const tab of tabs) {
             if (tab.id) chrome.tabs.sendMessage(tab.id, { 
                 type: 'MUTED_DOMAINS_UPDATE', 
@@ -146,7 +163,6 @@ async function broadcastMutedDomainsUpdate(newList) {
         }
     } catch (e) { }
 }
-// -----------------------------
 
 async function fixCookie(cookie) {
   if (cookie.domain.includes('google.com') || cookie.name.startsWith('__Host-') || cookie.name.startsWith('__Secure-')) {
@@ -184,33 +200,26 @@ async function handleCookieChange(changeInfo) {
 
 async function fixCookiesForDomains(domains) {
   if (!domains || domains.length === 0) return;
-  console.log(`TheChannel Viewer: Starting proactive cookie fix for domains:`, domains);
   for (const domain of domains) {
     try {
       const cookies = await chrome.cookies.getAll({ domain: domain });
       for (const cookie of cookies) {
         await fixCookie(cookie);
       }
-    } catch (error) {
-      console.error(`TheChannel Viewer: Could not get cookies for domain ${domain}.`, error);
-    }
+    } catch (error) {}
   }
-  console.log('TheChannel Viewer: Proactive cookie fix finished.');
 }
 
 chrome.cookies.onChanged.addListener(handleCookieChange);
 
-// --- מאזין להודעות ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  // --- טיפול בהודעה החדשה (מסלול מהיר) ---
   if (request.type === 'DIRECT_SYNC_UPDATE') {
       if (request.domain && request.payload) {
           handleDirectUpdate(request.domain, request.payload);
       }
-      return false; // לא מחזיר תשובה אסינכרונית
+      return false;
   }
 
-  // --- שאר ההודעות הקיימות ---
   if (request.type === 'GET_SETTINGS') {
     getSettingsWithTimestamp().then(sendResponse);
     return true;
@@ -219,8 +228,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'SAVE_SETTINGS') {
     if (request.payload && request.payload.settings && request.payload.lastModified) {
       saveSettings(request.payload.settings, request.payload.lastModified).then(() => sendResponse({ success: true }));
-    } else {
-      sendResponse({ success: false, error: 'Payload with settings and timestamp is required' });
     }
     return true;
   }
@@ -235,7 +242,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // --- טיפול בהשתקה ---
   if (request.type === 'GET_MUTED_DOMAINS') {
     getMutedDomains().then(sendResponse);
     return true;
@@ -245,38 +251,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     toggleMuteDomain(request.domain).then(sendResponse);
     return true;
   }
-  // --------------------
 
   if (request.type === 'OPEN_PERMISSION_POPUP' && request.domain) {
     const width = 420;
     const height = 480;
-
     chrome.windows.getLastFocused((currentWindow) => {
       let left = 100;
       let top = 100;
-
       if (currentWindow && currentWindow.width) {
         left = Math.round((currentWindow.width - width) / 2 + (currentWindow.left || 0));
         top = Math.round((currentWindow.height - height) / 2 + (currentWindow.top || 0));
       }
-
       const siteName = request.name || request.domain;
-
       chrome.windows.create({
         url: `permission_request/permission_request.html?domain=${encodeURIComponent(request.domain)}&name=${encodeURIComponent(siteName)}`,
-        type: 'popup',
-        width: width,
-        height: height,
-        left: left,
-        top: top,
-        focused: true
-      }, (createdWindow) => {
-        if (chrome.runtime.lastError) {
-          console.error("TheChannel Viewer: Failed to create popup window:", chrome.runtime.lastError);
-        }
+        type: 'popup', width, height, left, top, focused: true
       });
     });
-
     sendResponse({ success: true });
     return true;
   }
@@ -291,9 +282,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'triggerCookieFix') {
     if (request.domains && Array.isArray(request.domains)) {
       fixCookiesForDomains(request.domains);
-      sendResponse({ success: true, message: 'Cookie fix process initiated.' });
-    } else {
-      sendResponse({ success: false, error: 'No domains provided.' });
+      sendResponse({ success: true });
     }
     return true;
   }
@@ -301,18 +290,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return false;
 });
 
+// מאזין לשינויים ב-Storage לסנכרון בין טאבים ומופעים
+chrome.storage.onChanged.addListener(async (changes, areaName) => {
+    if (areaName === 'sync') {
+        // השתקות
+        if (changes[MUTED_DOMAINS_KEY]) {
+            broadcastMutedDomainsUpdate(changes[MUTED_DOMAINS_KEY].newValue || []);
+        }
+
+        // הגדרות אפליקציה (קטגוריות וכו')
+        if (changes[SETTINGS_STORAGE_KEY]) {
+            const newSettings = changes[SETTINGS_STORAGE_KEY].newValue;
+            const timestampData = await chrome.storage.sync.get(SETTINGS_TIMESTAMP_KEY);
+            broadcastSettingsUpdate(newSettings, timestampData[SETTINGS_TIMESTAMP_KEY]);
+        }
+    }
+});
+
 chrome.permissions.onAdded.addListener(async (permissions) => {
   if (permissions.origins && permissions.origins.length > 0) {
     const domains = permissions.origins.map(origin => {
-      try {
-        return new URL(origin.replace('*://', 'https://').replace('/*', '')).hostname;
-      } catch (e) {
-        return null;
-      }
+      try { return new URL(origin.replace('*://', 'https://').replace('/*', '')).hostname; } catch { return null; }
     }).filter(Boolean);
-
-    if (domains.length > 0) {
-      fixCookiesForDomains(domains);
-    }
+    if (domains.length > 0) fixCookiesForDomains(domains);
   }
 });

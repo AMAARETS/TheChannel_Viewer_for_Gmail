@@ -268,28 +268,40 @@
   };
 
   app.dom.createIframe = function() {
-    const container = document.createElement('div');
-    container.id = 'the-channel-iframe-container';
-    container.style.cssText = 'display:none; position:absolute; top:0; left:0; width:100%; height:100%;';
-    
-    // יצירת אלמנט Loader
-    const loader = document.createElement('div');
-    loader.id = 'the-channel-loader';
-    loader.innerHTML = `
-      <div class="the-channel-spinner"></div>
-      <div class="the-channel-loading-text">טוען את הערוץ...</div>
-    `;
-    container.appendChild(loader);
+      const container = document.createElement('div');
+      container.id = 'the-channel-iframe-container';
+      // הקונטיינר עצמו מוסתר, אבל ה-Iframe שבתוכו יתחיל להיטען
+      container.style.cssText = 'display:none; position:absolute; top:0; left:0; width:100%; height:100%;';
+      
+      const loader = document.createElement('div');
+      loader.id = 'the-channel-loader';
+      loader.innerHTML = `
+        <div class="the-channel-spinner"></div>
+        <div class="the-channel-loading-text">טוען את הערוץ...</div>
+      `;
+      container.appendChild(loader);
 
-    const iframe = document.createElement('iframe');
-    // לא מגדירים src מיד, שומרים אותו לשימוש מאוחר יותר
-    iframe.src = 'http://localhost:4200/'//'https://thechannel-viewer.clickandgo.cfd/';
-    iframe.style.cssText = 'width:100%; height:100%; border:none; display:none;'; // מוסתר בהתחלה
-    iframe.allow = 'clipboard-read; clipboard-write; fullscreen;';
-    
-    container.appendChild(iframe);
-    app.state.elements.iframeParent.appendChild(container);
-    return container;
+      const iframe = document.createElement('iframe');
+      // טעינה מיידית - וודא שזה HTTPS אם אפשר, או אשר Insecure Content בדפדפן
+      iframe.src = 'http://localhost:4200/'; 
+      iframe.style.cssText = 'width:100%; height:100%; border:none; display:none;'; // מוסתר עד שיסיים לטעון
+      iframe.allow = 'clipboard-read; clipboard-write; fullscreen;';
+      
+      // מאזין אירוע: ברגע שה-Iframe סיים לטעון, נחליף בין הספינר לתוכן
+      iframe.onload = function() {
+          console.log('TheChannel Viewer: Iframe loaded successfully');
+          loader.style.display = 'none';
+          iframe.style.display = 'block';
+      };
+
+      // טיפול במקרה של שגיאת טעינה (למשל Mixed Content חסום)
+      iframe.onerror = function() {
+          loader.querySelector('.the-channel-loading-text').textContent = 'שגיאה בטעינת הערוץ. וודא שהשרת רץ ושהרשאות ה-Insecure Content מאושרות.';
+      };
+
+      container.appendChild(iframe);
+      app.state.elements.iframeParent.appendChild(container);
+      return container;
   };
 
   // --- פונקציה לעדכון ה-Badge ---
@@ -388,47 +400,20 @@
   };
 
   app.dom.showTheChannel = function() {
-    const els = app.state.elements;
-    
-    // הסתרת סרגלי הצד הספציפיים (Gmail ו-Chat) באמצעות הוספת Class
-    // משתמשים באלמנטים שזוהו ב-queryElements (שהשתמשו באותה לוגיקה)
-    if (els.gmailSidebar) {
-       els.gmailSidebar.classList.add('the-channel-active-hide-gmail');
-    }
-    
-    if (els.chatSidebar) {
-       els.chatSidebar.classList.add('the-channel-active-hide-gmail');
-    }
-
-    // הסתרת התוכן המרכזי של ג'ימייל
-    els.gmailView?.classList.add('the-channel-active-hide-gmail');
-    els.searchBar?.classList.add('the-channel-active-hide-gmail');
-    
-    // הסתרת פסי כלים עליונים אם צריך
-    toggleDynamicBars(true); 
-    
-    // הצגת הערוץ (קונטיינר)
-    if (els.iframeContainer) {
-        els.iframeContainer.style.display = 'block';
-        
-        // --- לוגיקת טעינה עצלה (Lazy Loading) ---
-        const iframe = els.iframeContainer.querySelector('iframe');
-        const loader = els.iframeContainer.querySelector('#the-channel-loader');
-        
-        // אם אין src (כלומר טרם נטען), טוענים כעת
-        if (iframe && !iframe.getAttribute('src')) {
-            // טעינת ה-SRC
-            iframe.src = iframe.dataset.src;
-            
-            // האזנה לסיום הטעינה
-            iframe.onload = function() {
-                if (loader) loader.style.display = 'none';
-                iframe.style.display = 'block';
-            };
-        }
-    }
-    
-    this.updateActiveButtonVisuals();
+      const els = app.state.elements;
+      
+      if (els.gmailSidebar) els.gmailSidebar.classList.add('the-channel-active-hide-gmail');
+      if (els.chatSidebar) els.chatSidebar.classList.add('the-channel-active-hide-gmail');
+      els.gmailView?.classList.add('the-channel-active-hide-gmail');
+      els.searchBar?.classList.add('the-channel-active-hide-gmail');
+      
+      toggleDynamicBars(true); 
+      
+      if (els.iframeContainer) {
+          els.iframeContainer.style.display = 'block';
+      }
+      
+      this.updateActiveButtonVisuals();
   };
 
   app.dom.showGmail = function() {
