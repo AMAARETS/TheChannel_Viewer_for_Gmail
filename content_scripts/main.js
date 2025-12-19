@@ -13,7 +13,11 @@
     MANAGED_DOMAINS_DATA: 'THE_CHANNEL_MANAGED_DOMAINS_DATA',
     GET_UNREAD_STATUS: 'THE_CHANNEL_GET_UNREAD_STATUS',
     UNREAD_STATUS_DATA: 'THE_CHANNEL_UNREAD_STATUS_DATA',
-    UNREAD_STATUS_UPDATE: 'THE_CHANNEL_UNREAD_STATUS_UPDATE'
+    UNREAD_STATUS_UPDATE: 'THE_CHANNEL_UNREAD_STATUS_UPDATE',
+    // --- New Types ---
+    GET_MUTED_DOMAINS: 'THE_CHANNEL_GET_MUTED_DOMAINS',
+    MUTED_DOMAINS_DATA: 'THE_CHANNEL_MUTED_DOMAINS_DATA',
+    TOGGLE_MUTE_DOMAIN: 'THE_CHANNEL_TOGGLE_MUTE_DOMAIN'
   };
 
   // פונקציה המטפלת בהעברת הודעות מה-iframe ל-background script
@@ -50,19 +54,31 @@
         });
     }
 
-    // בקשת סטטוס לא נקרא (מה-Iframe)
     if (type === MESSAGE_TYPES.GET_UNREAD_STATUS) {
         chrome.runtime.sendMessage({ type: 'GET_UNREAD_STATUS' }, (unreadDomains) => {
             if (chrome.runtime.lastError) return;
-            // שליחה ל-Iframe
             iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.UNREAD_STATUS_DATA, payload: unreadDomains }, '*');
             
-            // עדכון הכפתור בממשק ג'ימייל גם כאן (סינכרון ראשוני)
             if (Array.isArray(unreadDomains)) {
                 app.dom.updateUnreadBadge(unreadDomains.length);
             }
         });
     }
+
+    // --- טיפול בבקשות השתקה ---
+    if (type === MESSAGE_TYPES.GET_MUTED_DOMAINS) {
+        chrome.runtime.sendMessage({ type: 'GET_MUTED_DOMAINS' }, (mutedDomains) => {
+            if (chrome.runtime.lastError) return;
+            iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.MUTED_DOMAINS_DATA, payload: mutedDomains }, '*');
+        });
+    }
+
+    if (type === MESSAGE_TYPES.TOGGLE_MUTE_DOMAIN) {
+        if (payload && payload.domain) {
+            chrome.runtime.sendMessage({ type: 'TOGGLE_MUTE_DOMAIN', domain: payload.domain });
+        }
+    }
+    // ----------------------------
 
     if (type === MESSAGE_TYPES.REQUEST_PERMISSION) {
         console.log('TheChannel Extension: Received permission request from iframe.', payload);
@@ -78,20 +94,29 @@
 
   // פונקציה המאזינה להודעות מה-Background ומעבירה ל-Iframe
   function handleMessagesFromBackground(message, sender, sendResponse) {
+      const iframe = app.state.elements.iframeContainer?.querySelector('iframe');
+
       if (message.type === 'UNREAD_STATUS_UPDATE') {
           const payload = message.payload;
           
-          // 1. עדכון ה-Badge בכפתור ג'ימייל
           if (Array.isArray(payload)) {
               app.dom.updateUnreadBadge(payload.length);
           }
 
-          // 2. העברה ל-Iframe
-          const iframe = app.state.elements.iframeContainer?.querySelector('iframe');
           if (iframe && iframe.contentWindow) {
               iframe.contentWindow.postMessage({
                   type: MESSAGE_TYPES.UNREAD_STATUS_UPDATE,
                   payload: payload
+              }, '*');
+          }
+      }
+
+      // האזנה לעדכון מושתקים מה-Background והעברה ל-Iframe
+      if (message.type === 'MUTED_DOMAINS_UPDATE') {
+          if (iframe && iframe.contentWindow) {
+              iframe.contentWindow.postMessage({
+                  type: MESSAGE_TYPES.MUTED_DOMAINS_DATA,
+                  payload: message.payload
               }, '*');
           }
       }
@@ -118,7 +143,6 @@
     // האזנה להודעות מה-Background (Push updates)
     chrome.runtime.onMessage.addListener(handleMessagesFromBackground);
 
-    // ביצוע בדיקת סטטוס ראשונית עבור הכפתור בג'ימייל (לפני שה-Iframe בכלל נטען)
     chrome.runtime.sendMessage({ type: 'GET_UNREAD_STATUS' }, (unreadDomains) => {
         if (!chrome.runtime.lastError && Array.isArray(unreadDomains)) {
             app.dom.updateUnreadBadge(unreadDomains.length);

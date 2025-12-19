@@ -8,7 +8,9 @@ const MESSAGE_TYPES_FROM_PAGE = {
   SETTINGS_CHANGED: 'THE_CHANNEL_SETTINGS_CHANGED',
   GET_MANAGED_DOMAINS: 'THE_CHANNEL_GET_MANAGED_DOMAINS',
   REQUEST_PERMISSION: 'THE_CHANNEL_REQUEST_PERMISSION',
-  GET_UNREAD_STATUS: 'THE_CHANNEL_GET_UNREAD_STATUS'
+  GET_UNREAD_STATUS: 'THE_CHANNEL_GET_UNREAD_STATUS',
+  GET_MUTED_DOMAINS: 'THE_CHANNEL_GET_MUTED_DOMAINS',
+  TOGGLE_MUTE_DOMAIN: 'THE_CHANNEL_TOGGLE_MUTE_DOMAIN'
 };
 
 const MESSAGE_TYPES_TO_PAGE = {
@@ -16,7 +18,8 @@ const MESSAGE_TYPES_TO_PAGE = {
   EXTENSION_READY: 'THE_CHANNEL_EXTENSION_READY',
   MANAGED_DOMAINS_DATA: 'THE_CHANNEL_MANAGED_DOMAINS_DATA',
   UNREAD_STATUS_DATA: 'THE_CHANNEL_UNREAD_STATUS_DATA',
-  UNREAD_STATUS_UPDATE: 'THE_CHANNEL_UNREAD_STATUS_UPDATE'
+  UNREAD_STATUS_UPDATE: 'THE_CHANNEL_UNREAD_STATUS_UPDATE',
+  MUTED_DOMAINS_DATA: 'THE_CHANNEL_MUTED_DOMAINS_DATA'
 };
 
 console.log('TheChannel Viewer: Website Bridge loaded.');
@@ -38,7 +41,6 @@ function sendMessageToBackground(message, callback) {
   try {
     chrome.runtime.sendMessage(message, (response) => {
       if (chrome.runtime.lastError) {
-        // console.warn('TheChannel Viewer runtime error:', chrome.runtime.lastError.message);
         return;
       }
       if (callback && typeof callback === 'function') {
@@ -73,12 +75,23 @@ window.addEventListener('THE_CHANNEL_TO_EXTENSION', (event) => {
     });
     
   } else if (type === MESSAGE_TYPES_FROM_PAGE.GET_UNREAD_STATUS) {
-    // בקשת סטטוס יזומה
     sendMessageToBackground({ type: 'GET_UNREAD_STATUS' }, (unreadDomains) => {
       window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
         detail: { type: MESSAGE_TYPES_TO_PAGE.UNREAD_STATUS_DATA, payload: unreadDomains }
       }));
     });
+
+  } else if (type === MESSAGE_TYPES_FROM_PAGE.GET_MUTED_DOMAINS) {
+    sendMessageToBackground({ type: 'GET_MUTED_DOMAINS' }, (mutedDomains) => {
+      window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
+        detail: { type: MESSAGE_TYPES_TO_PAGE.MUTED_DOMAINS_DATA, payload: mutedDomains }
+      }));
+    });
+
+  } else if (type === MESSAGE_TYPES_FROM_PAGE.TOGGLE_MUTE_DOMAIN) {
+    if (payload && payload.domain) {
+        sendMessageToBackground({ type: 'TOGGLE_MUTE_DOMAIN', domain: payload.domain });
+    }
 
   } else if (type === MESSAGE_TYPES_FROM_PAGE.REQUEST_PERMISSION) {
     if (payload && payload.domain) {
@@ -100,29 +113,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 payload: message.payload 
             }
         }));
+    } else if (message.type === 'MUTED_DOMAINS_UPDATE') {
+        window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
+            detail: { 
+                type: MESSAGE_TYPES_TO_PAGE.MUTED_DOMAINS_DATA, 
+                payload: message.payload 
+            }
+        }));
     }
 });
 
 // 5. האזן להודעות מה-Iframe Parent (עבור ג'ימייל)
-// כאשר האתר ב-Iframe, התוסף ב-Parent (main.js) מקבל את ההודעה מה-Background
-// ומעביר אותה ב-postMessage ל-Iframe. ה-Bridge קולט ומעביר לאתר.
 window.addEventListener('message', (event) => {
-    // אבטחה בסיסית: וודא שמקור ההודעה הוא ג'ימייל
-    if (event.origin !== 'https://mail.google.com') return;
+    // *** תיקון: אפשור קבלת הודעות גם כאשר האתר רץ בלוקלהוסט בתוך אייפריים ***
+    if (event.origin !== 'https://mail.google.com' && !event.origin.includes('localhost')) return;
     
     const { type, payload } = event.data || {};
     
-    // טיפול בעדכון סטטוס שמגיע מג'ימייל
     if (type === 'THE_CHANNEL_UNREAD_STATUS_UPDATE') {
         window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
-            detail: { 
-                type: MESSAGE_TYPES_TO_PAGE.UNREAD_STATUS_UPDATE, 
-                payload: payload 
-            }
+            detail: { type: MESSAGE_TYPES_TO_PAGE.UNREAD_STATUS_UPDATE, payload: payload }
         }));
     }
     
-    // טיפול בתשובות לבקשות (כגון הגדרות) שמגיעות דרך postMessage ב-Iframe
     if (type === 'THE_CHANNEL_SETTINGS_DATA') {
          window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
             detail: { type: MESSAGE_TYPES_TO_PAGE.SETTINGS_DATA, payload: payload }
@@ -136,6 +149,11 @@ window.addEventListener('message', (event) => {
     if (type === 'THE_CHANNEL_UNREAD_STATUS_DATA') {
          window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
             detail: { type: MESSAGE_TYPES_TO_PAGE.UNREAD_STATUS_DATA, payload: payload }
+        }));
+    }
+    if (type === 'THE_CHANNEL_MUTED_DOMAINS_DATA') {
+         window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
+            detail: { type: MESSAGE_TYPES_TO_PAGE.MUTED_DOMAINS_DATA, payload: payload }
         }));
     }
 });

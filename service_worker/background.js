@@ -1,16 +1,13 @@
 // --- ייבוא מודולים ---
 import './injection_manager.js';
-// ייבוא הפונקציה החדשה handleDirectUpdate
 import { initBadgeManager, getUnreadDomains, handleDirectUpdate } from './badge_manager.js';
 
 const SETTINGS_STORAGE_KEY = 'theChannelViewerSettings';
 const SETTINGS_TIMESTAMP_KEY = 'theChannelViewerSettingsTimestamp';
+const MUTED_DOMAINS_KEY = 'theChannel_muted_domains';
 
 // --- אתחול מנהל ההתראות (Badge) ---
 initBadgeManager();
-
-// ... (שאר הפונקציות ללא שינוי: getSettingsWithTimestamp, saveSettings, וכו') ...
-// יש להעתיק את כל הפונקציות הקיימות בקובץ המקורי עד ל-chrome.runtime.onMessage.addListener
 
 async function getSettingsWithTimestamp() {
   try {
@@ -89,6 +86,63 @@ async function getManagedDomains() {
     return [];
   }
 }
+
+// --- פונקציות עזר להשתקה ---
+async function getMutedDomains() {
+    try {
+        const result = await chrome.storage.sync.get([MUTED_DOMAINS_KEY]);
+        return result[MUTED_DOMAINS_KEY] || [];
+    } catch (e) {
+        console.error('Error fetching muted domains:', e);
+        return [];
+    }
+}
+
+async function toggleMuteDomain(domain) {
+    try {
+        const result = await chrome.storage.sync.get([MUTED_DOMAINS_KEY]);
+        let mutedList = result[MUTED_DOMAINS_KEY] || [];
+        const mutedSet = new Set(mutedList);
+
+        if (mutedSet.has(domain)) {
+            mutedSet.delete(domain);
+        } else {
+            mutedSet.add(domain);
+        }
+
+        const newList = Array.from(mutedSet);
+        await chrome.storage.sync.set({ [MUTED_DOMAINS_KEY]: newList });
+        
+        // שידור הודעה לטאבים שהרשימה עודכנה
+        broadcastMutedDomainsUpdate(newList);
+        
+        return newList;
+    } catch (e) {
+        console.error('Error toggling mute:', e);
+        return [];
+    }
+}
+
+async function broadcastMutedDomainsUpdate(newList) {
+    try {
+        // *** תיקון: הוספת localhost לרשימת הכתובות המקבלות עדכון ***
+        const tabs = await chrome.tabs.query({ 
+            url: [
+                "*://thechannel-viewer.clickandgo.cfd/*", 
+                "*://mail.google.com/*",
+                "*://localhost/*" 
+            ] 
+        });
+        
+        for (const tab of tabs) {
+            if (tab.id) chrome.tabs.sendMessage(tab.id, { 
+                type: 'MUTED_DOMAINS_UPDATE', 
+                payload: newList 
+            }).catch(() => {});
+        }
+    } catch (e) { }
+}
+// -----------------------------
 
 async function fixCookie(cookie) {
   if (cookie.domain.includes('google.com') || cookie.name.startsWith('__Host-') || cookie.name.startsWith('__Secure-')) {
@@ -176,6 +230,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     getUnreadDomains().then(sendResponse);
     return true;
   }
+
+  // --- טיפול בהשתקה ---
+  if (request.type === 'GET_MUTED_DOMAINS') {
+    getMutedDomains().then(sendResponse);
+    return true;
+  }
+
+  if (request.type === 'TOGGLE_MUTE_DOMAIN' && request.domain) {
+    toggleMuteDomain(request.domain).then(sendResponse);
+    return true;
+  }
+  // --------------------
 
   if (request.type === 'OPEN_PERMISSION_POPUP' && request.domain) {
     const width = 420;

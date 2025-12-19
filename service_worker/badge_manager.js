@@ -1,7 +1,7 @@
 const API_ENDPOINT = '/api/messages?offset=0&limit=0';
 const UNREAD_STATUS_KEY = 'theChannel_unsupported_domains_session'; 
 const PERSISTENT_UNREAD_KEY = 'theChannel_unread_status_cache'; 
-const MUTED_DOMAINS_KEY = 'theChannel_muted_domains'; // מפתח חדש לדומיינים מושתקים
+const MUTED_DOMAINS_KEY = 'theChannel_muted_domains';
 const ALARM_NAME = 'check_unread_messages_alarm';
 const CHECK_INTERVAL_MINUTES = 1;
 
@@ -11,7 +11,7 @@ const EXCLUDED_DOMAINS = [
 
 let unsupportedDomainsCache = new Set();
 let currentUnreadSet = new Set(); 
-let mutedDomainsCache = new Set(); // Cache לדומיינים מושתקים
+let mutedDomainsCache = new Set(); 
 let lastReadIdsCache = {}; 
 
 let isCacheLoaded = false;
@@ -20,24 +20,19 @@ let isFullCheckInProgress = false;
 // --- Load Cache ---
 async function loadCache() {
     try {
-        // טעינת רשימת הלא-נקראים
         const localResult = await chrome.storage.local.get([PERSISTENT_UNREAD_KEY]);
         const unreadList = localResult[PERSISTENT_UNREAD_KEY] || [];
         currentUnreadSet = new Set(unreadList);
 
-        // טעינת רשימת הלא-נתמכים (סשן)
         const sessionResult = await chrome.storage.session.get([UNREAD_STATUS_KEY]);
         const unsupportedList = sessionResult[UNREAD_STATUS_KEY] || [];
         unsupportedDomainsCache = new Set(unsupportedList);
 
-        // טעינת הגדרות סנכרון + רשימת מושתקים
         const syncResult = await chrome.storage.sync.get(null);
         
-        // טעינת מושתקים
         const mutedList = syncResult[MUTED_DOMAINS_KEY] || [];
         mutedDomainsCache = new Set(mutedList);
 
-        // טעינת מזהי הודעה אחרונה
         lastReadIdsCache = {};
         Object.keys(syncResult).forEach(key => {
             if (key.startsWith('sync_data_')) {
@@ -64,21 +59,17 @@ function getLastReadIdFromCache(domain) {
     return lastReadIdsCache[domain] || 0;
 }
 
-// --- פונקציה לעדכון ישיר מהיר ---
 export async function handleDirectUpdate(domain, payload) {
     if (!isCacheLoaded) await loadCache();
     
-    // אם הדומיין מושתק, מתעלמים מהעדכון ולא בודקים הודעות
     if (mutedDomainsCache.has(domain)) return;
 
     if (payload && payload.lastReadMessage) {
         const newMessageId = parseInt(payload.lastReadMessage);
         const currentId = lastReadIdsCache[domain] || 0;
         
-        // עדכון רק אם המספר החדש גדול יותר
         if (newMessageId > currentId) {
             lastReadIdsCache[domain] = newMessageId;
-            // הפעלת בדיקה מיידית עבור הדומיין הזה בלבד
             checkUnreadMessages([domain]);
         }
     }
@@ -121,10 +112,8 @@ async function fetchLatestMessageId(domain) {
 }
 
 async function broadcastUnreadDomains() {
-    // מסננים שוב ליתר ביטחון, למקרה שדומיין הושתק תוך כדי בדיקה
     const unreadList = Array.from(currentUnreadSet).filter(d => !mutedDomainsCache.has(d));
     
-    // אם הסינון שינה משהו, מעדכנים את ה-Set המקורי כדי לשמור על עקביות
     if (unreadList.length !== currentUnreadSet.size) {
         currentUnreadSet = new Set(unreadList);
     }
@@ -140,7 +129,14 @@ async function broadcastUnreadDomains() {
     }
 
     try {
-        const tabs = await chrome.tabs.query({ url: ["*://thechannel-viewer.clickandgo.cfd/*", "*://mail.google.com/*"] });
+        // *** תיקון: הוספת localhost גם כאן ***
+        const tabs = await chrome.tabs.query({ 
+            url: [
+                "*://thechannel-viewer.clickandgo.cfd/*", 
+                "*://mail.google.com/*",
+                "*://localhost/*" 
+            ] 
+        });
         for (const tab of tabs) {
             if (tab.id) chrome.tabs.sendMessage(tab.id, message).catch(() => {});
         }
@@ -159,7 +155,6 @@ async function checkUnreadMessages(specificDomains = null) {
 
     if (specificDomains && Array.isArray(specificDomains) && specificDomains.length > 0) {
         await Promise.all(specificDomains.map(async (domain) => {
-            // אם לא נתמך או מושתק - מדלגים ומסירים מהרשימה של הלא-נקראים אם היה שם
             if (unsupportedDomainsCache.has(domain) || mutedDomainsCache.has(domain)) {
                 currentUnreadSet.delete(domain);
                 return;
@@ -178,31 +173,46 @@ async function checkUnreadMessages(specificDomains = null) {
 
     try {
         let domainsToCheck = [];
-        try {
-            const permissions = await chrome.permissions.getAll();
-            const origins = permissions.origins || [];
-            const managedDomains = origins
-                .map(o => { try { return new URL(o.replace('*://', 'https://').replace('/*', '')).hostname; } catch { return null; } })
-                .filter(Boolean);
+        
+        const storageResult = await chrome.storage.sync.get(['theChannelViewerSettings']);
+        const settings = storageResult['theChannelViewerSettings'] || {};
+        const categories = settings.categories || [];
+        
+        const userEnabledDomains = new Set();
+        if (Array.isArray(categories)) {
+            categories.forEach(cat => {
+                if (Array.isArray(cat.sites)) {
+                    cat.sites.forEach(site => {
+                        try {
+                            const url = new URL(site.url);
+                            userEnabledDomains.add(url.hostname);
+                        } catch (e) { }
+                    });
+                }
+            });
+        }
 
-            // מסננים: דומיינים מוחרגים, דומיינים לא נתמכים, ודומיינים מושתקים
-            domainsToCheck = [...new Set(managedDomains)].filter(d => 
-                !EXCLUDED_DOMAINS.includes(d) && 
-                !unsupportedDomainsCache.has(d) &&
-                !mutedDomainsCache.has(d)
-            );
-        } catch (e) { return; }
+        const permissions = await chrome.permissions.getAll();
+        const origins = permissions.origins || [];
+        const permittedDomains = new Set(origins.map(o => {
+            try { return new URL(o.replace('*://', 'https://').replace('/*', '')).hostname; } catch { return null; }
+        }).filter(Boolean));
 
-        // אם אין דומיינים לבדיקה, מאפסים את התצוגה
+        domainsToCheck = [...userEnabledDomains].filter(domain => 
+            permittedDomains.has(domain) &&
+            !EXCLUDED_DOMAINS.includes(domain) && 
+            !unsupportedDomainsCache.has(domain) &&
+            !mutedDomainsCache.has(domain)
+        );
+
         if (domainsToCheck.length === 0) {
             currentUnreadSet.clear();
             broadcastUnreadDomains();
             return;
         }
 
-        // מנקים דומיינים שאולי הפכו למושתקים מהרשימה הנוכחית של לא-נקראים
         for (const activeUnread of currentUnreadSet) {
-             if (mutedDomainsCache.has(activeUnread)) {
+             if (!domainsToCheck.includes(activeUnread)) {
                  currentUnreadSet.delete(activeUnread);
              }
         }
@@ -224,7 +234,6 @@ async function checkUnreadMessages(specificDomains = null) {
 
 export async function getUnreadDomains() {
     if (!isCacheLoaded) await loadCache();
-    // סינון אחרון לפני החזרה ל-UI
     const result = Array.from(currentUnreadSet).filter(d => !mutedDomainsCache.has(d));
     checkUnreadMessages(); 
     return result;
@@ -243,25 +252,19 @@ export function initBadgeManager() {
         if (alarm.name === ALARM_NAME) checkUnreadMessages();
     });
     
-    // מאזין לשינויים ב-Storage Sync (מסלול איטי/מכשירים אחרים)
     chrome.storage.onChanged.addListener((changes, areaName) => {
         if (areaName === 'sync') {
-            
-            // 1. טיפול בשינוי רשימת המושתקים
             if (changes[MUTED_DOMAINS_KEY]) {
                 const newMutedList = changes[MUTED_DOMAINS_KEY].newValue || [];
                 mutedDomainsCache = new Set(newMutedList);
-                // ברגע שהרשימה משתנה, מריצים בדיקה מחדש כדי להסיר התראות מאתרים שהושתקו
                 checkUnreadMessages(); 
             }
 
-            // 2. טיפול בנתוני סנכרון הודעות
             const changedDomains = [];
             Object.keys(changes).forEach(key => {
                 if (key.startsWith('sync_data_')) {
                     const domain = key.replace('sync_data_', '');
                     
-                    // אם הדומיין מושתק, אין טעם לבדוק אותו
                     if (mutedDomainsCache.has(domain)) return;
 
                     const newValue = changes[key].newValue;

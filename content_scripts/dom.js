@@ -283,7 +283,7 @@
 
     const iframe = document.createElement('iframe');
     // לא מגדירים src מיד, שומרים אותו לשימוש מאוחר יותר
-    iframe.dataset.src = 'https://thechannel-viewer.clickandgo.cfd/';
+    iframe.src = 'http://localhost:4200/'//'https://thechannel-viewer.clickandgo.cfd/';
     iframe.style.cssText = 'width:100%; height:100%; border:none; display:none;'; // מוסתר בהתחלה
     iframe.allow = 'clipboard-read; clipboard-write; fullscreen;';
     
