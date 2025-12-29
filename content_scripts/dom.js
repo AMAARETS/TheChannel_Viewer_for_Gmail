@@ -402,8 +402,8 @@
   app.dom.showTheChannel = function() {
       const els = app.state.elements;
       
-      if (els.gmailSidebar) els.gmailSidebar.classList.add('the-channel-active-hide-gmail');
-      if (els.chatSidebar) els.chatSidebar.classList.add('the-channel-active-hide-gmail');
+      if (els.gmailSidebar) els.gmailSidebar.classList.remove('apV')//add('the-channel-active-hide-gmail');
+      if (els.chatSidebar) els.chatSidebar.classList.remove('apV')//add('the-channel-active-hide-gmail');
       els.gmailView?.classList.add('the-channel-active-hide-gmail');
       els.searchBar?.classList.add('the-channel-active-hide-gmail');
       
