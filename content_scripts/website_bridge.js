@@ -24,9 +24,10 @@ const MESSAGE_TYPES_TO_PAGE = {
 
 console.log('TheChannel Viewer: Website Bridge loaded.');
 
+// 1. הכרז על נוכחות התוסף
 window.theChannelExtensionActive = true;
-const extensionVersion = chrome.runtime.getManifest().version;
 
+// 2. שלח אירוע שהתוסף מוכן
 window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
   detail: { 
     type: MESSAGE_TYPES_TO_PAGE.EXTENSION_READY,
@@ -35,15 +36,26 @@ window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
 }));
 
 function sendMessageToBackground(message, callback) {
-  if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) return;
+  if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) {
+    console.log('TheChannel Viewer: Extension context invalidated. Please refresh the page.');
+    return;
+  }
+
   try {
     chrome.runtime.sendMessage(message, (response) => {
-      if (chrome.runtime.lastError) return;
-      if (callback) callback(response);
+      if (chrome.runtime.lastError) {
+        return;
+      }
+      if (callback && typeof callback === 'function') {
+        callback(response);
+      }
     });
-  } catch (error) {}
+  } catch (error) {
+    console.warn('TheChannel Viewer: Failed to send message (Extension might have been reloaded).', error.message);
+  }
 }
 
+// 3. האזן לאירועים מותאמים אישית מהאתר
 window.addEventListener('THE_CHANNEL_TO_EXTENSION', (event) => {
   if (!event.detail) return;
   const { type, payload } = event.detail;
@@ -95,35 +107,64 @@ window.addEventListener('THE_CHANNEL_TO_EXTENSION', (event) => {
   }
 });
 
+// 4. האזן להודעות Push מה-Background (עבור אתר ישיר בטאב)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'UNREAD_STATUS_UPDATE') {
         window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
-            detail: { type: MESSAGE_TYPES_TO_PAGE.UNREAD_STATUS_UPDATE, payload: message.payload }
+            detail: { 
+                type: MESSAGE_TYPES_TO_PAGE.UNREAD_STATUS_UPDATE, 
+                payload: message.payload 
+            }
         }));
     } else if (message.type === 'MUTED_DOMAINS_UPDATE') {
         window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
-            detail: { type: MESSAGE_TYPES_TO_PAGE.MUTED_DOMAINS_DATA, payload: message.payload }
+            detail: { 
+                type: MESSAGE_TYPES_TO_PAGE.MUTED_DOMAINS_DATA, 
+                payload: message.payload 
+            }
         }));
-    } else if (message.type === 'SETTINGS_DATA_UPDATE') {
+    }
+        else if (message.type === 'THE_CHANNEL_SETTINGS_DATA') {
         window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
-            detail: { type: MESSAGE_TYPES_TO_PAGE.SETTINGS_DATA, payload: message.payload }
+            detail: { 
+                type: 'THE_CHANNEL_SETTINGS_DATA', 
+                payload: message.payload 
+            }
         }));
     }
 });
 
+// 5. האזן להודעות מה-Iframe Parent (עבור ג'ימייל)
 window.addEventListener('message', (event) => {
+    // *** תיקון: אפשור קבלת הודעות גם כאשר האתר רץ בלוקלהוסט בתוך אייפריים ***
     if (event.origin !== 'https://mail.google.com' && !event.origin.includes('localhost')) return;
+    
     const { type, payload } = event.data || {};
     
-    if ([
-      'THE_CHANNEL_UNREAD_STATUS_UPDATE', 
-      'THE_CHANNEL_SETTINGS_DATA', 
-      'THE_CHANNEL_MANAGED_DOMAINS_DATA',
-      'THE_CHANNEL_UNREAD_STATUS_DATA',
-      'THE_CHANNEL_MUTED_DOMAINS_DATA'
-    ].includes(type)) {
+    if (type === 'THE_CHANNEL_UNREAD_STATUS_UPDATE') {
         window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
-            detail: { type: type.replace('THE_CHANNEL_', ''), payload: payload }
+            detail: { type: MESSAGE_TYPES_TO_PAGE.UNREAD_STATUS_UPDATE, payload: payload }
+        }));
+    }
+    
+    if (type === 'THE_CHANNEL_SETTINGS_DATA') {
+         window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
+            detail: { type: MESSAGE_TYPES_TO_PAGE.SETTINGS_DATA, payload: payload }
+        }));
+    }
+    if (type === 'THE_CHANNEL_MANAGED_DOMAINS_DATA') {
+         window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
+            detail: { type: MESSAGE_TYPES_TO_PAGE.MANAGED_DOMAINS_DATA, payload: payload }
+        }));
+    }
+    if (type === 'THE_CHANNEL_UNREAD_STATUS_DATA') {
+         window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
+            detail: { type: MESSAGE_TYPES_TO_PAGE.UNREAD_STATUS_DATA, payload: payload }
+        }));
+    }
+    if (type === 'THE_CHANNEL_MUTED_DOMAINS_DATA') {
+         window.dispatchEvent(new CustomEvent('THE_CHANNEL_FROM_EXTENSION', {
+            detail: { type: MESSAGE_TYPES_TO_PAGE.MUTED_DOMAINS_DATA, payload: payload }
         }));
     }
 });
