@@ -1,3 +1,4 @@
+// קובץ זה הוא נקודת הכניסה הראשית. הוא אחראי על אתחול התוסף והפעלת הלוגיקה.
 (function(app) {
   
   const SELECTORS_URL = 'https://cdn.jsdelivr.net/gh/AMAARETS/TheChannel_Viewer_for_Gmail@main/gmail-selectors.json';
@@ -13,75 +14,111 @@
     GET_UNREAD_STATUS: 'THE_CHANNEL_GET_UNREAD_STATUS',
     UNREAD_STATUS_DATA: 'THE_CHANNEL_UNREAD_STATUS_DATA',
     UNREAD_STATUS_UPDATE: 'THE_CHANNEL_UNREAD_STATUS_UPDATE',
+    // --- New Types ---
     GET_MUTED_DOMAINS: 'THE_CHANNEL_GET_MUTED_DOMAINS',
     MUTED_DOMAINS_DATA: 'THE_CHANNEL_MUTED_DOMAINS_DATA',
     TOGGLE_MUTE_DOMAIN: 'THE_CHANNEL_TOGGLE_MUTE_DOMAIN'
   };
 
+  // פונקציה המטפלת בהעברת הודעות מה-iframe ל-background script
   function handleMessagesFromIframe(event) {
     const iframe = app.state.elements.iframeContainer?.querySelector('iframe');
-    if (!iframe || event.source !== iframe.contentWindow) return;
+    // בדיקת אבטחה: מוודאים שההודעה הגיעה מה-iframe שלנו
+    if (!iframe || event.source !== iframe.contentWindow) {
+      return;
+    }
     
     const { type, payload } = event.data;
 
     if (type === MESSAGE_TYPES.APP_READY) {
+      console.log('TheChannel Extension: App is ready, requesting settings from background.');
       chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (response) => {
-        if (!chrome.runtime.lastError) {
-          iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.SETTINGS_DATA, payload: response }, '*');
+        if (chrome.runtime.lastError) {
+          console.error(chrome.runtime.lastError.message);
+          return;
         }
+        // שליחת תשובה חזרה ל-iframe
+        iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.SETTINGS_DATA, payload: response }, '*');
       });
     }
 
     if (type === MESSAGE_TYPES.SETTINGS_CHANGED) {
+      console.log('TheChannel Extension: Settings changed in app, saving to background.');
       chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', payload: payload });
     }
     
     if (type === MESSAGE_TYPES.GET_MANAGED_DOMAINS) {
         chrome.runtime.sendMessage({ type: 'GET_MANAGED_DOMAINS'}, (domains) => {
-            if (!chrome.runtime.lastError) iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.MANAGED_DOMAINS_DATA, payload: domains }, '*');
+            if (chrome.runtime.lastError) return;
+            iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.MANAGED_DOMAINS_DATA, payload: domains }, '*');
         });
     }
 
     if (type === MESSAGE_TYPES.GET_UNREAD_STATUS) {
         chrome.runtime.sendMessage({ type: 'GET_UNREAD_STATUS' }, (unreadDomains) => {
-            if (!chrome.runtime.lastError) {
-                iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.UNREAD_STATUS_DATA, payload: unreadDomains }, '*');
-                if (Array.isArray(unreadDomains)) app.dom.updateUnreadBadge(unreadDomains.length);
+            if (chrome.runtime.lastError) return;
+            iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.UNREAD_STATUS_DATA, payload: unreadDomains }, '*');
+            
+            if (Array.isArray(unreadDomains)) {
+                app.dom.updateUnreadBadge(unreadDomains.length);
             }
         });
     }
 
+    // --- טיפול בבקשות השתקה ---
     if (type === MESSAGE_TYPES.GET_MUTED_DOMAINS) {
         chrome.runtime.sendMessage({ type: 'GET_MUTED_DOMAINS' }, (mutedDomains) => {
-            if (!chrome.runtime.lastError) iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.MUTED_DOMAINS_DATA, payload: mutedDomains }, '*');
+            if (chrome.runtime.lastError) return;
+            iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.MUTED_DOMAINS_DATA, payload: mutedDomains }, '*');
         });
     }
 
     if (type === MESSAGE_TYPES.TOGGLE_MUTE_DOMAIN) {
-        if (payload && payload.domain) chrome.runtime.sendMessage({ type: 'TOGGLE_MUTE_DOMAIN', domain: payload.domain });
+        if (payload && payload.domain) {
+            chrome.runtime.sendMessage({ type: 'TOGGLE_MUTE_DOMAIN', domain: payload.domain });
+        }
     }
+    // ----------------------------
 
     if (type === MESSAGE_TYPES.REQUEST_PERMISSION) {
+        console.log('TheChannel Extension: Received permission request from iframe.', payload);
         if (payload && payload.domain) {
-            chrome.runtime.sendMessage({ type: 'OPEN_PERMISSION_POPUP', domain: payload.domain, name: payload.name });
+            chrome.runtime.sendMessage({ 
+                type: 'OPEN_PERMISSION_POPUP', 
+                domain: payload.domain,
+                name: payload.name 
+            });
         }
     }
   }
 
+  // פונקציה המאזינה להודעות מה-Background ומעבירה ל-Iframe
   function handleMessagesFromBackground(message, sender, sendResponse) {
       const iframe = app.state.elements.iframeContainer?.querySelector('iframe');
 
       if (message.type === 'UNREAD_STATUS_UPDATE') {
-          if (Array.isArray(message.payload)) app.dom.updateUnreadBadge(message.payload.length);
-          if (iframe?.contentWindow) iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.UNREAD_STATUS_UPDATE, payload: message.payload }, '*');
+          const payload = message.payload;
+          
+          if (Array.isArray(payload)) {
+              app.dom.updateUnreadBadge(payload.length);
+          }
+
+          if (iframe && iframe.contentWindow) {
+              iframe.contentWindow.postMessage({
+                  type: MESSAGE_TYPES.UNREAD_STATUS_UPDATE,
+                  payload: payload
+              }, '*');
+          }
       }
 
+      // האזנה לעדכון מושתקים מה-Background והעברה ל-Iframe
       if (message.type === 'MUTED_DOMAINS_UPDATE') {
-          if (iframe?.contentWindow) iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.MUTED_DOMAINS_DATA, payload: message.payload }, '*');
-      }
-
-      if (message.type === 'SETTINGS_DATA_UPDATE') {
-          if (iframe?.contentWindow) iframe.contentWindow.postMessage({ type: MESSAGE_TYPES.SETTINGS_DATA, payload: message.payload }, '*');
+          if (iframe && iframe.contentWindow) {
+              iframe.contentWindow.postMessage({
+                  type: MESSAGE_TYPES.MUTED_DOMAINS_DATA,
+                  payload: message.payload
+              }, '*');
+          }
       }
   }
 
@@ -92,38 +129,59 @@
     app.state.elements.theChannelButton = app.dom.createNavButton();
     app.state.elements.iframeContainer = app.dom.createIframe();
 
-    if (!app.state.elements.theChannelButton || !app.state.elements.iframeContainer) return false;
+    if (!app.state.elements.theChannelButton || !app.state.elements.iframeContainer) {
+        console.error('TheChannel Viewer: Could not create required elements.');
+        return false;
+    }
     
     app.events.attachListeners();
     app.events.handleHashChange();
+    
+    // האזנה ל-postMessage מה-Iframe
     window.addEventListener('message', handleMessagesFromIframe);
+    
+    // האזנה להודעות מה-Background (Push updates)
     chrome.runtime.onMessage.addListener(handleMessagesFromBackground);
 
     chrome.runtime.sendMessage({ type: 'GET_UNREAD_STATUS' }, (unreadDomains) => {
-        if (!chrome.runtime.lastError && Array.isArray(unreadDomains)) app.dom.updateUnreadBadge(unreadDomains.length);
+        if (!chrome.runtime.lastError && Array.isArray(unreadDomains)) {
+            app.dom.updateUnreadBadge(unreadDomains.length);
+        }
     });
     
     app.storage.checkAndRestoreSidebar();
+    
     app.state.isInitialized = true;
+    console.log('TheChannel Viewer for Gmail was successfully initialized!');
     return true;
   }
 
   function waitForGmail() {
     if (init()) return;
-    const observer = new MutationObserver(() => { if (init()) observer.disconnect(); });
+    const observer = new MutationObserver((mutations, obs) => {
+      if (init()) {
+        obs.disconnect();
+      }
+    });
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  async function fetchSelectorsAndStart() {
+async function fetchSelectorsAndStart() {
     try {
       const response = await fetch(`${SELECTORS_URL}?_=${new Date().getTime()}`, { cache: 'no-cache' });
+      if (!response.ok) throw new Error(`Network response was not ok`);
       app.state.selectors = await response.json();
       waitForGmail(); 
     } catch (error) {
-      const localSelectorsUrl = chrome.runtime.getURL('gmail-selectors.json');
-      const response = await fetch(localSelectorsUrl);
-      app.state.selectors = await response.json();
-      waitForGmail();
+      console.warn(`TheChannel Viewer: Failed to fetch remote selectors. Using local.`);
+      try {
+        const localSelectorsUrl = chrome.runtime.getURL('gmail-selectors.json');
+        const response = await fetch(localSelectorsUrl);
+        app.state.selectors = await response.json();
+        waitForGmail();
+      } catch (fallbackError) {
+        console.error('TheChannel Viewer: CRITICAL - Failed to load selectors.', fallbackError);
+      }
     }
   }
 

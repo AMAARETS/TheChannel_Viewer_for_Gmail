@@ -283,7 +283,7 @@
 
       const iframe = document.createElement('iframe');
       // טעינה מיידית - וודא שזה HTTPS אם אפשר, או אשר Insecure Content בדפדפן
-      iframe.src = 'http://localhost:4200/'; 
+      iframe.src = 'https://thechannel-viewer.clickandgo.cfd/'; 
       iframe.style.cssText = 'width:100%; height:100%; border:none; display:none;'; // מוסתר עד שיסיים לטעון
       iframe.allow = 'clipboard-read; clipboard-write; fullscreen;';
       
@@ -402,8 +402,8 @@
   app.dom.showTheChannel = function() {
       const els = app.state.elements;
       
-      if (els.gmailSidebar) els.gmailSidebar.classList.add('the-channel-active-hide-gmail');
-      if (els.chatSidebar) els.chatSidebar.classList.add('the-channel-active-hide-gmail');
+      if (els.gmailSidebar) els.gmailSidebar.classList.remove('apV')//add('the-channel-active-hide-gmail');
+      if (els.chatSidebar) els.chatSidebar.classList.remove('apV')//add('the-channel-active-hide-gmail');
       els.gmailView?.classList.add('the-channel-active-hide-gmail');
       els.searchBar?.classList.add('the-channel-active-hide-gmail');
       
