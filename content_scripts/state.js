@@ -5,6 +5,7 @@ const TheChannelViewer = {
     lastActiveApp: 'mail',
     isInitialized: false,
     isCustomSidebar: false,
+    sidebarObserver: null, 
     elements: {
       mailButton: null,
       chatButton: null,

@@ -41,7 +41,6 @@
                                 ? selectors.gmailSidebarCollapsed[0] 
                                 : selectors.gmailSidebarCollapsed;
 
-      // מבטיח שהמרג'ין יחול רק כשהסרגל גלוי. ברגע שהוא מוסתר (בצפייה בערוץ), המרג'ין מתבטל.
       const cssRule = `
         #the-channel-custom-sidebar ~ ${collapsedSelector}:not(.the-channel-active-hide-gmail) { 
             margin-right: 72px !important; 
@@ -57,7 +56,6 @@
     
     if (!selectors) return false;
 
-    // הפעלת הזרקת ה-CSS הדינמי
     app.dom.injectDynamicStyles();
 
     els.gmailView = findElement(selectors.gmailView);
@@ -68,24 +66,18 @@
     els.navContainer = findElement(selectors.navContainer);
     els.sidebarParent = findElement(selectors.sidebarParent);
 
-    // --- זיהוי סרגלים לצורך הסתרה (TheChannel View) ---
-    // שימוש באותה לוגיקה בדיוק כמו ב-updateComposeButtonVisibility
     const closestSelector = Array.isArray(selectors.closestSidebar) ? selectors.closestSidebar[0] : selectors.closestSidebar;
     
-    // מציאת סרגל המייל
     const gmailInner = findElement(selectors.gmailSidebarContainer);
     els.gmailSidebar = gmailInner ? gmailInner.closest(closestSelector) : null;
 
-    // מציאת סרגל הצ'אט
     const chatInner = findElement(selectors.chatSidebarContainer);
     els.chatSidebar = chatInner ? chatInner.closest(closestSelector) : null;
 
-    // גיבוי למקרה של מבנה ישן/אחר (aeN) - רלוונטי בעיקר אם לא נמצאו הספציפיים
     if (!els.gmailSidebar && !els.chatSidebar) {
          els.gmailSidebar = findElement(selectors.gmailSidebar);
     }
 
-    // קביעה האם זהו מצב מותאם אישית (ללא סרגל גוגל)
     if (!els.navContainer) {
        app.state.isCustomSidebar = !!els.sidebarParent;
     } else {
@@ -102,7 +94,6 @@
       els.meetButton = meetButtonLabel ? meetButtonLabel.closest(buttonContainerSelector) : null;
     }
 
-    // תנאי הצלחה
     return els.navContainer !== null || els.sidebarParent !== null;
   };
 
@@ -160,11 +151,9 @@
       const channelIconContainer = document.createElement('div');
       channelIconContainer.className = 'the-channel-icon-container';
 
-      // --- יצירת ה-Badge ---
       const badge = document.createElement('div');
       badge.className = 'the-channel-badge';
       channelIconContainer.appendChild(badge);
-      // --------------------
 
       const iconSvgDefault = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       iconSvgDefault.setAttribute('class', 'the-channel-icon the-channel-icon-default');
@@ -221,11 +210,9 @@
     const iconContainer = document.createElement('div');
     iconContainer.className = 'the-channel-icon-container';
 
-    // --- יצירת ה-Badge ---
     const badge = document.createElement('div');
     badge.className = 'the-channel-badge';
     iconContainer.appendChild(badge);
-    // --------------------
 
     const iconSvgDefault = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     iconSvgDefault.setAttribute('class', 'the-channel-icon the-channel-icon-default');
@@ -270,7 +257,6 @@
   app.dom.createIframe = function() {
       const container = document.createElement('div');
       container.id = 'the-channel-iframe-container';
-      // הקונטיינר עצמו מוסתר, אבל ה-Iframe שבתוכו יתחיל להיטען
       container.style.cssText = 'display:none; position:absolute; top:0; left:0; width:100%; height:100%;';
       
       const loader = document.createElement('div');
@@ -282,19 +268,16 @@
       container.appendChild(loader);
 
       const iframe = document.createElement('iframe');
-      // טעינה מיידית - וודא שזה HTTPS אם אפשר, או אשר Insecure Content בדפדפן
       iframe.src = 'https://thechannel-viewer.clickandgo.cfd/'; 
-      iframe.style.cssText = 'width:100%; height:100%; border:none; display:none;'; // מוסתר עד שיסיים לטעון
+      iframe.style.cssText = 'width:100%; height:100%; border:none; display:none;'; 
       iframe.allow = 'clipboard-read; clipboard-write; fullscreen;';
       
-      // מאזין אירוע: ברגע שה-Iframe סיים לטעון, נחליף בין הספינר לתוכן
       iframe.onload = function() {
           console.log('TheChannel Viewer: Iframe loaded successfully');
           loader.style.display = 'none';
           iframe.style.display = 'block';
       };
 
-      // טיפול במקרה של שגיאת טעינה (למשל Mixed Content חסום)
       iframe.onerror = function() {
           loader.querySelector('.the-channel-loading-text').textContent = 'שגיאה בטעינת הערוץ. וודא שהשרת רץ ושהרשאות ה-Insecure Content מאושרות.';
       };
@@ -304,7 +287,6 @@
       return container;
   };
 
-  // --- פונקציה לעדכון ה-Badge ---
   app.dom.updateUnreadBadge = function(count) {
     const theChannelButton = app.state.elements.theChannelButton;
     if (!theChannelButton) return;
@@ -313,11 +295,9 @@
     if (!badge) return;
 
     if (count && count > 0) {
-        // הצג אם יש הודעות
         badge.textContent = count > 99 ? '99+' : count.toString();
         badge.classList.add('visible');
     } else {
-        // הסתר אם אין
         badge.classList.remove('visible');
     }
   };
@@ -370,18 +350,15 @@
   };
   
   app.dom.updateComposeButtonVisibility = function() {
-      // אם אנחנו בסרגל מותאם אישית, אין מה להסתיר כי הסרגל שלנו מכסה הכל
       if (app.state.isCustomSidebar) return;
 
       const selectors = app.state.selectors;
       const closestSidebarSelector = Array.isArray(selectors.closestSidebar) ? selectors.closestSidebar[0] : selectors.closestSidebar;
       
-      // משתמשים בזיהוי חי (כפי שהיה במקור) כדי לטפל בלוגיקה של ג'ימייל נטו
       const gmailSidebar = findElement(selectors.gmailSidebarContainer)?.closest(closestSidebarSelector);
       const chatSidebar = findElement(selectors.chatSidebarContainer)?.closest(closestSidebarSelector);
       const activeClass = Array.isArray(selectors.activeNavButton2) ? selectors.activeNavButton2[0] : selectors.activeNavButton2;
 
-      // לוגיקה זו מונעת משני הסרגלים להיות מוצגים יחד במעבר בין אפליקציות גוגל
       if (window.location.hash.startsWith('#calls')) {
         if (gmailSidebar && chatSidebar) {
           gmailSidebar.classList.remove(activeClass);
@@ -392,7 +369,6 @@
           gmailSidebar.classList.remove(activeClass);
         }
       } else {
-        // ברירת מחדל (Mail)
         if(chatSidebar){
           chatSidebar.classList.remove(activeClass);
         }
@@ -402,8 +378,14 @@
   app.dom.showTheChannel = function() {
       const els = app.state.elements;
       
-      if (els.gmailSidebar) els.gmailSidebar.classList.add('the-channel-active-hide-gmail');
-      if (els.chatSidebar) els.chatSidebar.classList.add('the-channel-active-hide-gmail');
+      if (app.state.sidebarObserver) {
+          app.state.sidebarObserver.disconnect();
+          app.state.sidebarObserver = null;
+      }
+
+      if (els.gmailSidebar) els.gmailSidebar.classList.remove('apV');
+      if (els.chatSidebar) els.chatSidebar.classList.remove('apV');
+      
       els.gmailView?.classList.add('the-channel-active-hide-gmail');
       els.searchBar?.classList.add('the-channel-active-hide-gmail');
       
@@ -419,28 +401,93 @@
   app.dom.showGmail = function() {
     const els = app.state.elements;
     
+    // 1. זיהוי אם אנחנו מגיעים מהערוץ (לפני שהסתרנו אותו)
+    const wasInChannel = els.iframeContainer && els.iframeContainer.style.display !== 'none';
+
     // הסתרת הערוץ
     if (els.iframeContainer) els.iframeContainer.style.display = 'none';
+    
+    // ניקוי הקלאס המסתיר שלנו (למקרה שנשאר)
+    if (els.gmailSidebar) els.gmailSidebar.classList.remove('the-channel-active-hide-gmail');
+    if (els.chatSidebar) els.chatSidebar.classList.remove('the-channel-active-hide-gmail');
+    
+    if (els.chatSidebar) els.chatSidebar.style.cssText = '';
+    if (els.gmailSidebar) els.gmailSidebar.style.cssText = '';
     
     // החזרת התצוגה של ג'ימייל
     els.gmailView?.classList.remove('the-channel-active-hide-gmail');
     els.searchBar?.classList.remove('the-channel-active-hide-gmail');
     
-    // החזרת הסרגלים הצידיים (הסרת ה-Class המסתיר שלנו)
-    if (els.gmailSidebar) {
-        els.gmailSidebar.classList.remove('the-channel-active-hide-gmail');
-    }
-    
-    if (els.chatSidebar) {
-        els.chatSidebar.classList.remove('the-channel-active-hide-gmail');
-    }
-
     toggleDynamicBars(false);
     window.dispatchEvent(new Event('resize'));
     
-    // כאן updateComposeButtonVisibility ייקרא מיד אחרי דרך events.js -> handleHashChange
-    // כדי להבטיח שרק הסרגל הנכון (מייל או צ'אט) יוצג לפי ה-Hash
-    
+    // --- התיקון החדש: מלכודת חכמה וממוקדת להסרת הסרגל ---
+    const enforceSidebarVisibility = (sidebar) => {
+        if (!sidebar) return;
+
+        sidebar.classList.add('apV');
+        sidebar.classList.remove('aJu');
+
+        if (app.state.sidebarObserver) {
+            app.state.sidebarObserver.disconnect();
+        }
+
+        const observer = new MutationObserver((mutations) => {
+            if (window.location.hash.startsWith('#the-channel')) {
+                observer.disconnect();
+                app.state.sidebarObserver = null;
+                return;
+            }
+
+            for (const mutation of mutations) {
+                if (mutation.attributeName === 'class') {
+                    if (!sidebar.classList.contains('apV')) {
+                        
+                        const els = app.state.elements;
+                        const otherSidebar = (sidebar === els.gmailSidebar) ? els.chatSidebar : els.gmailSidebar;
+
+                        if (otherSidebar && (otherSidebar.classList.contains('aJu') || otherSidebar.classList.contains('apV'))) {
+                            observer.disconnect();
+                            app.state.sidebarObserver = null;
+                            return;
+                        }
+
+                        sidebar.classList.add('apV');
+                        sidebar.classList.remove('aJu');
+
+                        observer.disconnect();
+                        app.state.sidebarObserver = null;
+                        
+                        return;
+                    }
+                }
+            }
+        });
+
+        observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+        app.state.sidebarObserver = observer;
+    };
+
+    // 2. הפעלת הלוגיקה רק אם יצאנו מהערוץ
+    if (wasInChannel) {
+        const hash = window.location.hash;
+        let currentApp = 'mail'; // ברירת מחדל
+        let targetSidebar = els.gmailSidebar;
+
+        if (hash.startsWith('#chat')) {
+            currentApp = 'chat';
+            targetSidebar = els.chatSidebar;
+        } else if (hash.startsWith('#meet') || hash.startsWith('#calls')) {
+            currentApp = 'meet';
+            targetSidebar = null; // ל-Meet אין סרגל צידי מהסוג הזה בד"כ
+        }
+
+        // 3. הפעלה רק אם חזרנו לאותה אפליקציה שהיינו בה קודם
+        if (currentApp === app.state.lastActiveApp && targetSidebar) {
+            enforceSidebarVisibility(targetSidebar);
+        }
+    }
+
     this.updateActiveButtonVisuals();
   };
 
