@@ -128,6 +128,9 @@
 
     app.state.elements.theChannelButton = app.dom.createNavButton();
     app.state.elements.iframeContainer = app.dom.createIframe();
+    
+    // יצירת סרגל הערוץ החדש
+    app.dom.createChannelSidebar();
 
     if (!app.state.elements.theChannelButton || !app.state.elements.iframeContainer) {
         console.error('TheChannel Viewer: Could not create required elements.');

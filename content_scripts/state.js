@@ -13,6 +13,7 @@ const TheChannelViewer = {
       sidebarParent: null,
       gmailSidebar: null, // יישמר כאן הרפרנס לסרגל המיילים (לדוגמה .aqn)
       chatSidebar: null,  // יישמר כאן הרפרנס לסרגל הצ'אט (לדוגמה .aqn)
+      channelSidebar: null, // הרפרנס לסרגל החדש של הערוץ
       iframeContainer: null,
       theChannelButton: null,
       hamburgerButton: null,

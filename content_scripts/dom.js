@@ -254,6 +254,30 @@
     return newButton;
   };
 
+  app.dom.createChannelSidebar = function() {
+      const els = app.state.elements;
+      if (!els.sidebarParent) return;
+
+      const sidebarWrapper = document.createElement('div');
+      sidebarWrapper.className = 'the-channel-sidebar-wrapper';
+      
+      const iframe = document.createElement('iframe');
+      iframe.src = 'http://localhost:4200/sidebar';
+      iframe.setAttribute('frameborder', '0');
+      
+      sidebarWrapper.appendChild(iframe);
+      
+      // הוספת הסרגל לפני הסרגל הקיים (שמירה על סדר RTL)
+      const existingSidebar = els.gmailSidebar || els.chatSidebar;
+      if (existingSidebar) {
+          els.sidebarParent.insertBefore(sidebarWrapper, existingSidebar);
+      } else {
+          els.sidebarParent.appendChild(sidebarWrapper);
+      }
+
+      els.channelSidebar = sidebarWrapper;
+  };
+
   app.dom.createIframe = function() {
       const container = document.createElement('div');
       container.id = 'the-channel-iframe-container';
@@ -268,7 +292,7 @@
       container.appendChild(loader);
 
       const iframe = document.createElement('iframe');
-      iframe.src = 'https://thechannel-viewer.clickandgo.cfd/'; 
+      iframe.src = 'http://localhost:4200/'//'https://thechannel-viewer.clickandgo.cfd/'; 
       iframe.style.cssText = 'width:100%; height:100%; border:none; display:none;'; 
       iframe.allow = 'clipboard-read; clipboard-write; fullscreen;';
       
@@ -383,14 +407,21 @@
           app.state.sidebarObserver = null;
       }
 
-      if (els.gmailSidebar) els.gmailSidebar.classList.remove('apV');
-      if (els.chatSidebar) els.chatSidebar.classList.remove('apV');
-      
+      // 1. הסתרת הסרגלים של ג'ימייל
+      if (els.gmailSidebar) els.gmailSidebar.classList.add('the-channel-active-hide-gmail');
+      if (els.chatSidebar) els.chatSidebar.classList.add('the-channel-active-hide-gmail');
+
+      // 2. הצגת סרגל הערוץ
+      // שימוש ב-flex במקום block כדי לשמור על הגובה המלא
+      if (els.channelSidebar) els.channelSidebar.classList.add('active');
+
+      // 3. הסתרת התצוגה הראשית של ג'ימייל
       els.gmailView?.classList.add('the-channel-active-hide-gmail');
       els.searchBar?.classList.add('the-channel-active-hide-gmail');
       
       toggleDynamicBars(true); 
       
+      // 4. הצגת התצוגה הראשית של הערוץ
       if (els.iframeContainer) {
           els.iframeContainer.style.display = 'block';
       }
@@ -401,27 +432,29 @@
   app.dom.showGmail = function() {
     const els = app.state.elements;
     
-    // 1. זיהוי אם אנחנו מגיעים מהערוץ (לפני שהסתרנו אותו)
     const wasInChannel = els.iframeContainer && els.iframeContainer.style.display !== 'none';
 
-    // הסתרת הערוץ
+    // 1. הסתרת התצוגה הראשית של הערוץ
     if (els.iframeContainer) els.iframeContainer.style.display = 'none';
+
+    // 2. הסתרת סרגל הערוץ
+    if (els.channelSidebar) els.channelSidebar.classList.remove('active');
     
-    // ניקוי הקלאס המסתיר שלנו (למקרה שנשאר)
+    // 3. החזרת הסרגלים של ג'ימייל
     if (els.gmailSidebar) els.gmailSidebar.classList.remove('the-channel-active-hide-gmail');
     if (els.chatSidebar) els.chatSidebar.classList.remove('the-channel-active-hide-gmail');
     
+    // ניקוי styles ישירים
     if (els.chatSidebar) els.chatSidebar.style.cssText = '';
     if (els.gmailSidebar) els.gmailSidebar.style.cssText = '';
     
-    // החזרת התצוגה של ג'ימייל
+    // 4. החזרת התצוגה הראשית של ג'ימייל והחיפוש
     els.gmailView?.classList.remove('the-channel-active-hide-gmail');
     els.searchBar?.classList.remove('the-channel-active-hide-gmail');
     
     toggleDynamicBars(false);
     window.dispatchEvent(new Event('resize'));
     
-    // --- התיקון החדש: מלכודת חכמה וממוקדת להסרת הסרגל ---
     const enforceSidebarVisibility = (sidebar) => {
         if (!sidebar) return;
 
@@ -468,10 +501,9 @@
         app.state.sidebarObserver = observer;
     };
 
-    // 2. הפעלת הלוגיקה רק אם יצאנו מהערוץ
     if (wasInChannel) {
         const hash = window.location.hash;
-        let currentApp = 'mail'; // ברירת מחדל
+        let currentApp = 'mail';
         let targetSidebar = els.gmailSidebar;
 
         if (hash.startsWith('#chat')) {
@@ -479,10 +511,9 @@
             targetSidebar = els.chatSidebar;
         } else if (hash.startsWith('#meet') || hash.startsWith('#calls')) {
             currentApp = 'meet';
-            targetSidebar = null; // ל-Meet אין סרגל צידי מהסוג הזה בד"כ
+            targetSidebar = null;
         }
 
-        // 3. הפעלה רק אם חזרנו לאותה אפליקציה שהיינו בה קודם
         if (currentApp === app.state.lastActiveApp && targetSidebar) {
             enforceSidebarVisibility(targetSidebar);
         }
