@@ -296,3 +296,13 @@
     display: block;
     flex-grow: 1; /* מוודא שה-iframe תופס את כל הגובה הזמין */
 }
+.the-channel-sidebar-wrapper {
+    transition: opacity 0.2s ease-in-out, visibility 0.2s;
+}
+
+.the-channel-sidebar-wrapper.active.hide-on-hover {
+    opacity: 0 !important;
+    visibility: collapse !important;
+    display: none !important;
+    pointer-events: none !important;
+}

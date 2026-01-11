@@ -407,10 +407,14 @@
           app.state.sidebarObserver = null;
       }
 
-      // 1. הסתרת הסרגלים של ג'ימייל
-      if (els.gmailSidebar) els.gmailSidebar.classList.add('the-channel-active-hide-gmail');
-      if (els.chatSidebar) els.chatSidebar.classList.add('the-channel-active-hide-gmail');
+      if (app.state.sidebarObserver) {
+          app.state.sidebarObserver.disconnect();
+          app.state.sidebarObserver = null;
+      }
 
+      if (els.gmailSidebar) els.gmailSidebar.classList.remove('apV');
+      if (els.chatSidebar) els.chatSidebar.classList.remove('apV');
+      
       // 2. הצגת סרגל הערוץ
       // שימוש ב-flex במקום block כדי לשמור על הגובה המלא
       if (els.channelSidebar) els.channelSidebar.classList.add('active');
@@ -441,8 +445,6 @@
     if (els.channelSidebar) els.channelSidebar.classList.remove('active');
     
     // 3. החזרת הסרגלים של ג'ימייל
-    if (els.gmailSidebar) els.gmailSidebar.classList.remove('the-channel-active-hide-gmail');
-    if (els.chatSidebar) els.chatSidebar.classList.remove('the-channel-active-hide-gmail');
     
     // ניקוי styles ישירים
     if (els.chatSidebar) els.chatSidebar.style.cssText = '';
