@@ -1,7 +1,7 @@
 {
   "gmailView": [".aeF"],
   "iframeParent": [".Tm"],
-  "hamburgerButton": [".gb_1c"],
+  "hamburgerButton": ["div[data-ogmb='1'][role='button']", "div[role='button'][aria-label='התפריט הראשי']", "div[role='button'][aria-label='Main menu']", ".gb_cd"],
   "searchBar": ["form[role='search']"],
   "navContainer": ["div[role='navigation'].a6o"],
   "sidebarParent": [".nH.aqk.aql.bkL"],
